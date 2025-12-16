@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 // --- TYPE DEFINITIONS ---
 typedef int (*builtin_handler)(char *args);
 typedef struct {
@@ -109,7 +112,51 @@ int main(int argc, char *argv[]) {
     }
 
     if (!found) {
-      printf("%s: command not found\n", command);
+      char *path_env = getenv("PATH");
+      if (path_env == NULL) return 1;
+
+      char *path_copy = strdup(path_env);
+      char *dir = strtok(path_copy, ":");
+      char full_path[1024];
+      while (dir != NULL) {
+        // Concatenate 'dir' + '/' + 'args' 
+        snprintf(full_path, sizeof(full_path), "%s/%s", dir, args);
+        // Check if that file exists using access()
+        if (access(full_path, X_OK) == 0) {
+          // Execute the program
+          pid_t pid = fork();
+          if(pid==0){
+            //CHILD
+            char *cmd_args[100];
+            cmd_args[0] = command;
+
+            int idx = 1;
+
+            if(args != NULL){
+              char *token = strtok(args, " ");
+              while (token != NULL){
+                cmd_args[idx++] = token;
+                token = strtok(NULL, " ");
+              }
+            }
+            cmd_args[idx] = NULL;
+
+            execvp(command, cmd_args);
+
+            printf("%s: command not found\n", command);
+            exit(1);
+          } else if (pid > 0){
+            // PARENT
+            int status;
+            wait(&status);
+          } else{
+            perror("fork");
+          }
+        } 
+        dir = strtok(NULL, ":");
+      }
+    } if (!found){
+      printf("%s: command not found", command);
     }
     
     printf("$ ");
