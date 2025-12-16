@@ -16,12 +16,14 @@ typedef struct {
 int do_echo(char *args);
 int do_exit(char *args);
 int do_type(char *args);
+int do_pwd(char *args);
 
 // --- GLOBAL REGISTRY ---
 Builtin builtins[] = {
   {"echo", do_echo},
   {"exit", do_exit},
   {"type", do_type},
+  {"pwd",  do_pwd},
   {NULL, NULL} // Marks end
 };
 
@@ -36,6 +38,17 @@ int do_exit(char *args) {
   return -1; 
 }
 
+int do_pwd(char *args){
+  char cwd[1024]; 
+    // getcwd(buffer, size) fills the buffer with the current directory
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("%s\n", cwd);
+    } else {
+        perror("pwd error");
+        return 1;
+    }
+    return 0;
+}
 int do_type(char *args) {
   if (args == NULL) return 1;
 
