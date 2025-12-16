@@ -115,19 +115,38 @@ int do_type(char **argv) {
 
 int parse_input(char *input, char **argv){
   int argc = 0;
-  int in_quotes = 0;
+  int in_single_quotes = 0;
+  int in_double_quotes = 0;
   char * current_token = input;
 
   // Loop through every character checking for a single quote
   for (int i = 0; input[i] != '\0'; i++) {
-    if(input[i] == '\''){
-      in_quotes = !in_quotes;
+    if(input[i] == '\'' && !in_double_quotes){
+      in_single_quotes = !in_single_quotes;
       // In place move all the characters left one
       memmove(&input[i], &input[i+1], strlen(&input[i+1]) + 1);
       i--;
       continue;
     }
-    if(input[i]==' ' && !in_quotes){
+    else if(input[i] == '"' && !in_single_quotes){
+      in_double_quotes = !in_double_quotes;
+      // In place move all the characters left one
+      memmove(&input[i], &input[i+1], strlen(&input[i+1]) + 1);
+      i--;
+      continue;
+    } else if(input[i] == '\\'){
+      if(in_single_quotes){
+      } else if (in_double_quotes){
+        if(input[i+1] == '\\' || input[i+1] =='"' || input[i+1] =='$' || input[i+1] =='\n'){
+          memmove(&input[i], &input[i+1], strlen(&input[i+1]) + 1);
+        } 
+      } else{
+        if (input[i + 1] != '\0') {
+          memmove(&input[i], &input[i + 1], strlen(&input[i + 1]) + 1);
+        }
+      }
+    }
+    else if(input[i]==' ' && !in_single_quotes && !in_double_quotes){
       input[i] = '\0';
       if (*current_token != '\0') {
         argv[argc++] = current_token;
