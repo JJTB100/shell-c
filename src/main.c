@@ -75,92 +75,80 @@ int do_type(char *args) {
 
 // --- MAIN LOOP ---
 int main(int argc, char *argv[]) {
-  setbuf(stdout, NULL);
-  printf("$ ");
-
-  char inp[1024];
-
-  while (fgets(inp, 1024, stdin) != NULL) {
-    // Remove trailing new line
-    inp[strcspn(inp, "\n")] = '\0';
+    // Disable output buffering
+    setbuf(stdout, NULL);
     
-    char *space_pos = strchr(inp, ' ');
-    char *command = NULL;
-    char *args = NULL;
-
-    if (space_pos != NULL){
-      *space_pos = '\0';
-      command = inp;
-      args = space_pos + 1;
-      while(*args == ' ') args++; 
-    } else {
-      command = inp;
-      args = NULL;
-    }
-
-    int found = 0; 
-
-    for (int i = 0; builtins[i].name != NULL; i++) {
-      if (strcmp(command, builtins[i].name) == 0) {
-        int result = builtins[i].handler(args);
-        
-        if (result == -1) return 0; // Exit successfully
-        
-        found = 1;
-        break;
-      }
-    }
-
-    if (!found) {
-      char *path_env = getenv("PATH");
-      if (path_env == NULL) return 1;
-
-      char *path_copy = strdup(path_env);
-      char *dir = strtok(path_copy, ":");
-      char full_path[1024];
-      while (dir != NULL) {
-        // Concatenate 'dir' + '/' + 'args' 
-        snprintf(full_path, sizeof(full_path), "%s/%s", dir, args);
-        // Check if that file exists using access()
-        if (access(full_path, X_OK) == 0) {
-          // Execute the program
-          pid_t pid = fork();
-          if(pid==0){
-            //CHILD
-            char *cmd_args[100];
-            cmd_args[0] = command;
-
-            int idx = 1;
-
-            if(args != NULL){
-              char *token = strtok(args, " ");
-              while (token != NULL){
-                cmd_args[idx++] = token;
-                token = strtok(NULL, " ");
-              }
-            }
-            cmd_args[idx] = NULL;
-
-            execvp(command, cmd_args);
-
-            printf("%s: command not found\n", command);
-            exit(1);
-          } else if (pid > 0){
-            // PARENT
-            int status;
-            wait(&status);
-          } else{
-            perror("fork");
-          }
-        } 
-        dir = strtok(NULL, ":");
-      }
-    } if (!found){
-      printf("%s: command not found\n", command);
-    }
+    char inp[1024];
     
     printf("$ ");
-  }
 
-  return 0;
+    while (fgets(inp, 1024, stdin) != NULL) {
+        // Clean up input (remove newline)
+        inp[strcspn(inp, "\n")] = '\0';
+        
+        // Parse Command vs Args
+        char *space_pos = strchr(inp, ' ');
+        char *command = NULL;
+        char *args = NULL;
+
+        if (space_pos != NULL){
+            *space_pos = '\0';
+            command = inp;
+            args = space_pos + 1;
+            while(*args == ' ') args++; 
+        } else {
+            command = inp;
+            args = NULL;
+        }
+
+        // Check Builtins
+        int found_builtin = 0; 
+        for (int i = 0; builtins[i].name != NULL; i++) {
+            if (strcmp(command, builtins[i].name) == 0) {
+                int result = builtins[i].handler(args);
+                if (result == -1) return 0; // Exit shell
+                found_builtin = 1;
+                break;
+            }
+        }
+
+        // Run External Program (if not a builtin)
+        if (!found_builtin) {
+            pid_t pid = fork();
+
+            if (pid == 0) {
+                // --- CHILD PROCESS ---
+                char *cmd_args[100];
+                cmd_args[0] = command;
+                int idx = 1;
+
+                // Split args for execvp
+                if (args != NULL) {
+                    char *token = strtok(args, " ");
+                    while (token != NULL) {
+                        cmd_args[idx++] = token;
+                        token = strtok(NULL, " ");
+                    }
+                }
+                cmd_args[idx] = NULL; // Null terminate the list
+
+                // execvp automatically searches PATH
+                execvp(command, cmd_args);
+
+                // If we get here, execvp failed (command not found)
+                printf("%s: command not found\n", command);
+                exit(1); 
+            } else if (pid > 0) {
+                // --- PARENT PROCESS ---
+                int status;
+                wait(&status);
+            } else {
+                perror("fork");
+            }
+        }
+        
+        printf("$ ");
+    }
+
+    return 0;
 }
