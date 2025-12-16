@@ -5,18 +5,18 @@
 int main(int argc, char *argv[]) {
   // Flush after every printf
   setbuf(stdout, NULL);
+  
+  printf("$ ");
 
-  while (1){
-    // TODO: Uncomment the code below to pass the first stage
-    printf("$ ");
+  ssize_t max_size = 1024;
+  char command[max_size];
 
-    char command[1024];
-    fgets(command, sizeof(command), stdin);
-
+  while (fgets(command, max_size, stdin) != NULL){
     // Remove trailing new line
     command[strcspn(command, "\n")] = '\0';
 
     printf("%s: command not found\n", command);
+    printf("$ ");
   }
 
   return 0;
