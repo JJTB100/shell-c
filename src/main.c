@@ -63,7 +63,7 @@ int do_type(char *args) {
     dir = strtok(NULL, ":");
   }
   if(!found){
-    printf("%s: not found", args);
+    printf("%s: not found\n", args);
     return 0;
   }
   free(path_copy);
