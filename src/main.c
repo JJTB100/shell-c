@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
         dir = strtok(NULL, ":");
       }
     } if (!found){
-      printf("%s: command not found", command);
+      printf("%s: command not found\n", command);
     }
     
     printf("$ ");
