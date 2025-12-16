@@ -41,7 +41,7 @@ int do_exit(char *args) {
 }
 int do_cd(char * args){
   char *path = args;
-  if (path == NULL || strcmp(path, "~" == 0)){
+  if (path == NULL || strcmp(path, "~") == 0){
     path = getenv("HOME");
     if (path == NULL){
       printf("cd: HOME not set\n");
