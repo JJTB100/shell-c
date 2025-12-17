@@ -185,6 +185,9 @@ int main(int argc, char *main_argv[]) {
 
     char *out_file = NULL;
     char *err_file = NULL;
+    int append_out = 0; // Flag for >>
+    int append_err = 0; // Flag for 2>>
+
     for (int i=0; argv[i] != NULL; i++){
       if (strcmp(argv[i], ">") == 0 || strcmp(argv[i], "1>") == 0) {
         if (argv[i+1] == NULL) {
@@ -221,6 +224,7 @@ int main(int argc, char *main_argv[]) {
         found_builtin = 1;
 
         int saved_stdout = -1;
+        int saved_stderr = -1;
         int out_fd = -1;
         if (out_file != NULL) {
           saved_stdout = dup(STDOUT_FILENO);
