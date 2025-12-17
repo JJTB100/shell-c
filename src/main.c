@@ -183,17 +183,35 @@ int main(int argc, char *main_argv[]) {
 
     char *command = argv[0];
 
-    char *out_file_name = NULL;
+    char *out_file = NULL;
+    char *err_file = NULL;
     for (int i=0; argv[i] != NULL; i++){
       if (strcmp(argv[i], ">") == 0 || strcmp(argv[i], "1>") == 0) {
         if (argv[i+1] == NULL) {
           printf("Syntax error: expected file after >\n");
           continue;
         }
-        out_file_name = argv[i+1];
+        out_file = argv[i+1];
         argv[i] = NULL; // Cut the command off here
         break;
-      } 
+      } else if (strcmp(argv[i], ">>") == 0 || strcmp(argv[i], "1>>") == 0) {
+        if (argv[i+1] == NULL) continue;
+        out_file = argv[i+1];
+        append_out = 1; // Set append flag
+        argv[i] = NULL;
+      }// Check for Standard Error Redirection
+      else if (strcmp(argv[i], "2>") == 0) {
+          if (argv[i+1] == NULL) continue;
+          err_file = argv[i+1];
+          append_err = 0;
+          argv[i] = NULL;
+      }
+      else if (strcmp(argv[i], "2>>") == 0) {
+          if (argv[i+1] == NULL) continue;
+          err_file = argv[i+1];
+          append_err = 1;
+          argv[i] = NULL;
+      }
     }
 
     int found_builtin = 0;
@@ -204,23 +222,26 @@ int main(int argc, char *main_argv[]) {
 
         int saved_stdout = -1;
         int out_fd = -1;
-        if (out_file_name != NULL){
+        if (out_file != NULL) {
           saved_stdout = dup(STDOUT_FILENO);
-          out_fd = open(out_file_name, O_CREAT|O_TRUNC|O_WRONLY, 0644);
-          if(out_fd == -1){
-            perror("open");
-            break;
-          }
-          
-          dup2(out_fd, STDOUT_FILENO);
-          close(out_fd);
+          int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
+          int fd = open(out_file, flags, 0644);
+          if (fd == -1) { perror("open"); break; }
+          dup2(fd, STDOUT_FILENO);
+          close(fd);
+        }
+        if (err_file != NULL) {
+          saved_stderr = dup(STDERR_FILENO);
+          int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
+          int fd = open(err_file, flags, 0644);
+          if (fd == -1) { perror("open"); break; }
+          dup2(fd, STDERR_FILENO);
+          close(fd);
         }
         // Pass the entire argv array to the handler
         int result = builtins[i].handler(argv);
-        if (out_file_name != NULL){
-          dup2(saved_stdout, 1);
-          close(saved_stdout);
-        }
+        if (out_file != NULL) { dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout); }
+        if (err_file != NULL) { dup2(saved_stderr, STDERR_FILENO); close(saved_stderr); }
         if (result == -1) return 0; // Exit shell
         
         break;
@@ -234,14 +255,21 @@ int main(int argc, char *main_argv[]) {
 
       if (pid == 0) {
         // Child Process
-        // handle stdout redirection
-        if(out_file_name != NULL){
-          int fd = open(out_file_name, O_WRONLY |O_CREAT|O_TRUNC, 0644);
-          if (fd == -1){
-            perror("open");
-            exit(1);
-          }
+        // Redirect Stdout
+        if (out_file != NULL) {
+          int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
+          int fd = open(out_file, flags, 0644);
+          if (fd == -1) { perror("open out"); exit(1); }
           dup2(fd, STDOUT_FILENO);
+          close(fd);
+        }
+
+        // Redirect Stderr
+        if (err_file != NULL) {
+          int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
+          int fd = open(err_file, flags, 0644);
+          if (fd == -1) { perror("open err"); exit(1); }
+          dup2(fd, STDERR_FILENO);
           close(fd);
         }
 
