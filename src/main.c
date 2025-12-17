@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 // --- TYPE DEFINITIONS ---
 typedef int (*builtin_handler)(char **argv);
@@ -181,26 +182,70 @@ int main(int argc, char *main_argv[]) {
     }
 
     char *command = argv[0];
-    int found_builtin = 0;
 
+    char *out_file_name = NULL;
+    for (int i=0; argv[i] != NULL; i++){
+      if (strcmp(argv[i], ">") == 0 || strcmp(argv[i], "1>") == 0) {
+        if (argv[i+1] == NULL) {
+          printf("Syntax error: expected file after >\n");
+          continue;
+        }
+        out_file_name = argv[i+1];
+        argv[i] = NULL; // Cut the command off here
+        break;
+      } 
+    }
+
+    int found_builtin = 0;
     // Check Builtins
     for (int i = 0; builtins[i].name != NULL; i++) {
       if (strcmp(command, builtins[i].name) == 0) {
+        found_builtin = 1;
+
+        int saved_stdout = -1;
+        int out_fd = -1;
+        if (out_file_name != NULL){
+          saved_stdout = dup(STDOUT_FILENO);
+          out_fd = open(out_file_name, O_CREAT|O_TRUNC|O_WRONLY, 0644);
+          if(out_fd == -1){
+            perror("open");
+            break;
+          }
+          
+          dup2(out_fd, STDOUT_FILENO);
+          close(out_fd);
+        }
         // Pass the entire argv array to the handler
         int result = builtins[i].handler(argv);
+        if (out_file_name != NULL){
+          dup2(saved_stdout, 1);
+          close(saved_stdout);
+        }
         if (result == -1) return 0; // Exit shell
-        found_builtin = 1;
+        
         break;
       }
     }
 
     // Run External Program
     if (!found_builtin) {
+
       pid_t pid = fork();
 
       if (pid == 0) {
         // Child Process
-        // execvp accepts the argv array directly!
+        // handle stdout redirection
+        if(out_file_name != NULL){
+          int fd = open(out_file_name, O_WRONLY |O_CREAT|O_TRUNC, 0644);
+          if (fd == -1){
+            perror("open");
+            exit(1);
+          }
+          dup2(fd, STDOUT_FILENO);
+          close(fd);
+        }
+
+        // execvp accepts the argv array directly
         execvp(command, argv);
         
         printf("%s: command not found\n", command);
