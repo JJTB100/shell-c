@@ -201,6 +201,10 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
           strcat(buffer, to_add);
           printf("%s", to_add);
           pos = ptr_to_add + strlen(to_add);
+
+          strcat(buffer, " ");
+          printf(" ");
+          pos++;
           break;
         }
       }
