@@ -322,7 +322,7 @@ void handle_external(char *command, char **argv, char *out_file, char *err_file,
     execvp(command, argv);
     
     printf("%s: command not found\n", command);
-    exit(1);
+    _exit(1);
   } else if (pid > 0) {
     // Parent Process
     int status;
