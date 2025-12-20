@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <termios.h>
 
 // --- TYPE DEFINITIONS ---
 typedef int (*builtin_handler)(char **argv);
@@ -30,7 +31,10 @@ Builtin builtins[] = {
   {NULL, NULL} // Marks end
 };
 
+struct termios orig_termios;
+
 // --- IMPLEMENTATIONS ---
+
 int do_echo(char **argv) {
   for (int i = 1; argv[i] != NULL; i++) {
     printf("%s", argv[i]);
@@ -65,6 +69,7 @@ int do_cd(char **argv) {
 
 int do_pwd(char **argv) {
   char cwd[1024];
+  // getcwd(buffer, size) fills the buffer with the current directory
   if (getcwd(cwd, sizeof(cwd)) != NULL) {
     printf("%s\n", cwd);
   } else {
@@ -163,21 +168,182 @@ int parse_input(char *input, char **argv){
   return argc;
 }
 
+void disableRawMode(){
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+}
+
+void enableRawMode(){
+  tcgetattr(STDIN_FILENO, &orig_termios);
+  atexit(disableRawMode);
+  struct termios raw = orig_termios;
+  raw.c_lflag &= ~(ECHO | ICANON);
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
+int read_input_with_autocomplete(char *buffer, size_t size) {
+  int pos = 0;
+  char c;
+  
+  while (read(STDIN_FILENO, &c, 1) == 1) {
+    if (c == '\n') {
+      buffer[pos] = '\0';
+      printf("\n");
+      return 0;
+    } 
+    else if (c == '\t') {
+      // Look at buffer content so far (0 to pos)
+      for(int i=0; builtins[i].name != NULL; i++){
+        // Compare against builtins[]
+        if (strncmp(buffer, builtins[i].name, pos) == 0) {      
+          // If match found, append to buffer and printf the extra chars
+          int ptr_to_add = pos;
+          const char *to_add = &builtins[i].name[ptr_to_add];
+          strcat(buffer, to_add);
+          printf("%s", to_add);
+          pos = ptr_to_add + strlen(to_add);
+          break;
+        }
+      }
+    } 
+    else if (c == 127) { // Backspace
+      if (pos > 0) {
+        pos--;
+        printf("\b \b"); // Move back, print space, move back again
+      }
+    } 
+    else {
+      if (size > 0 && (size_t)pos < size - 1) {
+        buffer[pos++] = c;
+        buffer[pos] = '\0';
+        printf("%c", c);
+      }
+    }
+  }
+  return -1;
+}
+
+void parse_redirections(char **argv, char **out_file, char **err_file, int *append_out, int *append_err) {
+  for (int i=0; argv[i] != NULL; i++){
+    if (strcmp(argv[i], ">") == 0 || strcmp(argv[i], "1>") == 0) {
+      if (argv[i+1] == NULL) {
+        printf("Syntax error: expected file after >\n");
+        continue;
+      }
+      *out_file = argv[i+1];
+      argv[i] = NULL; // Cut the command off here
+    } else if (strcmp(argv[i], ">>") == 0 || strcmp(argv[i], "1>>") == 0) {
+      if (argv[i+1] == NULL) continue;
+      *out_file = argv[i+1];
+      *append_out = 1; // Set append flag
+      argv[i] = NULL;
+    }
+    // Check for Standard Error Redirection
+    else if (strcmp(argv[i], "2>") == 0) {
+      if (argv[i+1] == NULL) continue;
+      *err_file = argv[i+1];
+      *append_err = 0;
+      argv[i] = NULL;
+    }
+    else if (strcmp(argv[i], "2>>") == 0) {
+      if (argv[i+1] == NULL) continue;
+      *err_file = argv[i+1];
+      *append_err = 1;
+      argv[i] = NULL;
+    }
+  }
+}
+
+int handle_builtin(char *command, char **argv, char *out_file, char *err_file, int append_out, int append_err) {
+  // Check Builtins
+  for (int i = 0; builtins[i].name != NULL; i++) {
+    if (strcmp(command, builtins[i].name) == 0) {
+      
+      int saved_stdout = -1;
+      int saved_stderr = -1;
+      if (out_file != NULL) {
+        saved_stdout = dup(STDOUT_FILENO);
+        int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
+        int fd = open(out_file, flags, 0644);
+        if (fd == -1) { perror("open"); return 1; }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+      }
+      if (err_file != NULL) {
+        saved_stderr = dup(STDERR_FILENO);
+        int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
+        int fd = open(err_file, flags, 0644);
+        if (fd == -1) { perror("open"); return 1; }
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+      }
+      
+      // Pass the entire argv array to the handler
+      int result = builtins[i].handler(argv);
+      
+      if (out_file != NULL) { dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout); }
+      if (err_file != NULL) { dup2(saved_stderr, STDERR_FILENO); close(saved_stderr); }
+      
+      if (result == -1) return -1; // Exit shell
+      return 1; // Handled
+    }
+  }
+  return 0; // Not a builtin
+}
+
+void handle_external(char *command, char **argv, char *out_file, char *err_file, int append_out, int append_err) {
+  // Run External Program
+  pid_t pid = fork();
+
+  if (pid == 0) {
+    // Child Process
+    // Redirect Stdout
+    if (out_file != NULL) {
+      int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
+      int fd = open(out_file, flags, 0644);
+      if (fd == -1) { perror("open out"); exit(1); }
+      dup2(fd, STDOUT_FILENO);
+      close(fd);
+    }
+
+    // Redirect Stderr
+    if (err_file != NULL) {
+      int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
+      int fd = open(err_file, flags, 0644);
+      if (fd == -1) { perror("open err"); exit(1); }
+      dup2(fd, STDERR_FILENO);
+      close(fd);
+    }
+
+    // execvp accepts the argv array directly
+    execvp(command, argv);
+    
+    printf("%s: command not found\n", command);
+    exit(1);
+  } else if (pid > 0) {
+    // Parent Process
+    int status;
+    wait(&status);
+  } else {
+    perror("fork");
+  }
+}
+
 // --- MAIN LOOP ---
 int main(int argc, char *main_argv[]) {
   setbuf(stdout, NULL);
-  printf("$ ");
-
+  enableRawMode();
   char inp[1024];
 
-  while (fgets(inp, 1024, stdin) != NULL) {
-    inp[strcspn(inp, "\n")] = '\0';
+  while (1) {
+    printf("$ ");
+    
+    // Using the custom read function instead of fgets
+    if (read_input_with_autocomplete(inp, 1024) != 0) break;
 
     char *argv[100];
-    int argc = parse_input(inp, argv);
+    int parsed_argc = parse_input(inp, argv);
 
-    if (argc == 0) {
-      printf("$ ");
+    if (parsed_argc == 0) {
       continue;
     }
 
@@ -188,110 +354,13 @@ int main(int argc, char *main_argv[]) {
     int append_out = 0; // Flag for >>
     int append_err = 0; // Flag for 2>>
 
-    for (int i=0; argv[i] != NULL; i++){
-      if (strcmp(argv[i], ">") == 0 || strcmp(argv[i], "1>") == 0) {
-        if (argv[i+1] == NULL) {
-          printf("Syntax error: expected file after >\n");
-          continue;
-        }
-        out_file = argv[i+1];
-        argv[i] = NULL; // Cut the command off here
-        break;
-      } else if (strcmp(argv[i], ">>") == 0 || strcmp(argv[i], "1>>") == 0) {
-        if (argv[i+1] == NULL) continue;
-        out_file = argv[i+1];
-        append_out = 1; // Set append flag
-        argv[i] = NULL;
-      }// Check for Standard Error Redirection
-      else if (strcmp(argv[i], "2>") == 0) {
-          if (argv[i+1] == NULL) continue;
-          err_file = argv[i+1];
-          append_err = 0;
-          argv[i] = NULL;
-      }
-      else if (strcmp(argv[i], "2>>") == 0) {
-          if (argv[i+1] == NULL) continue;
-          err_file = argv[i+1];
-          append_err = 1;
-          argv[i] = NULL;
-      }
-    }
+    parse_redirections(argv, &out_file, &err_file, &append_out, &append_err);
 
-    int found_builtin = 0;
-    // Check Builtins
-    for (int i = 0; builtins[i].name != NULL; i++) {
-      if (strcmp(command, builtins[i].name) == 0) {
-        found_builtin = 1;
+    int builtin_result = handle_builtin(command, argv, out_file, err_file, append_out, append_err);
+    if (builtin_result == -1) return 0;
+    if (builtin_result == 1) continue;
 
-        int saved_stdout = -1;
-        int saved_stderr = -1;
-        int out_fd = -1;
-        if (out_file != NULL) {
-          saved_stdout = dup(STDOUT_FILENO);
-          int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
-          int fd = open(out_file, flags, 0644);
-          if (fd == -1) { perror("open"); break; }
-          dup2(fd, STDOUT_FILENO);
-          close(fd);
-        }
-        if (err_file != NULL) {
-          saved_stderr = dup(STDERR_FILENO);
-          int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
-          int fd = open(err_file, flags, 0644);
-          if (fd == -1) { perror("open"); break; }
-          dup2(fd, STDERR_FILENO);
-          close(fd);
-        }
-        // Pass the entire argv array to the handler
-        int result = builtins[i].handler(argv);
-        if (out_file != NULL) { dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout); }
-        if (err_file != NULL) { dup2(saved_stderr, STDERR_FILENO); close(saved_stderr); }
-        if (result == -1) return 0; // Exit shell
-        
-        break;
-      }
-    }
-
-    // Run External Program
-    if (!found_builtin) {
-
-      pid_t pid = fork();
-
-      if (pid == 0) {
-        // Child Process
-        // Redirect Stdout
-        if (out_file != NULL) {
-          int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
-          int fd = open(out_file, flags, 0644);
-          if (fd == -1) { perror("open out"); exit(1); }
-          dup2(fd, STDOUT_FILENO);
-          close(fd);
-        }
-
-        // Redirect Stderr
-        if (err_file != NULL) {
-          int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
-          int fd = open(err_file, flags, 0644);
-          if (fd == -1) { perror("open err"); exit(1); }
-          dup2(fd, STDERR_FILENO);
-          close(fd);
-        }
-
-        // execvp accepts the argv array directly
-        execvp(command, argv);
-        
-        printf("%s: command not found\n", command);
-        exit(1);
-      } else if (pid > 0) {
-        // Parent Process
-        int status;
-        wait(&status);
-      } else {
-        perror("fork");
-      }
-    }
-
-    printf("$ ");
+    handle_external(command, argv, out_file, err_file, append_out, append_err);
   }
 
   return 0;
