@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
+#include <dirent.h>
 
 // --- TYPE DEFINITIONS ---
 typedef int (*builtin_handler)(char **argv);
@@ -179,7 +180,54 @@ void enableRawMode(){
   raw.c_lflag &= ~(ECHO | ICANON);
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
+int try_path_completion(char *buffer, int *pos_ptr) {
+  char *path_env = getenv("PATH");
+  if (path_env == NULL) return 0;
 
+  char *path_copy = strdup(path_env);
+  char *dir = strtok(path_copy, ":");
+  int pos = *pos_ptr;
+
+  while (dir != NULL) {
+    DIR *d = opendir(dir);
+    if (d == NULL) {
+      dir = strtok(NULL, ":");
+      continue;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL) {
+      // Check prefix match, excluding "." and ".."
+      if (strncmp(buffer, entry->d_name, pos) == 0 &&
+          strcmp(entry->d_name, ".") != 0 &&
+          strcmp(entry->d_name, "..") != 0) {
+        
+        // Calculate suffix
+        char *to_add = entry->d_name + pos;
+        
+        // Append suffix
+        strcat(buffer, to_add);
+        printf("%s", to_add);
+        
+        // Append trailing space
+        strcat(buffer, " ");
+        printf(" ");
+        
+        // Update position pointer
+        *pos_ptr += strlen(to_add) + 1;
+        
+        closedir(d);
+        free(path_copy);
+        return 1; // Found
+      }
+    }
+    closedir(d);
+    dir = strtok(NULL, ":");
+  }
+
+  free(path_copy);
+  return 0;
+}
 int read_input_with_autocomplete(char *buffer, size_t size) {
   int pos = 0;
   char c;
@@ -198,11 +246,10 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
         if (strncmp(buffer, builtins[i].name, pos) == 0) {      
           // If match found, append to buffer and printf the extra chars
           found = 1;
-          int ptr_to_add = pos;
-          const char *to_add = &builtins[i].name[ptr_to_add];
+          const char *to_add = &builtins[i].name[pos];
           strcat(buffer, to_add);
           printf("%s", to_add);
-          pos = ptr_to_add + strlen(to_add);
+          pos = pos + strlen(to_add);
 
           strcat(buffer, " ");
           printf(" ");
@@ -210,8 +257,13 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
           break;
         }
       }
-      if (found == 0){
-        printf("\x07");
+      if (!found){
+        if(try_path_completion(buffer, &pos)){
+          found = 1;
+        }
+        else{
+          printf("\x07");
+        }
       }
     } 
     else if (c == 127) { // Backspace
