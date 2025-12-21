@@ -46,6 +46,7 @@ int do_echo(char **argv) {
 }
 
 int do_exit(char **argv) {
+  (void) argv;
   return -1;
 }
 
@@ -69,6 +70,7 @@ int do_cd(char **argv) {
 }
 
 int do_pwd(char **argv) {
+  (void) argv;
   char cwd[1024];
   // getcwd(buffer, size) fills the buffer with the current directory
   if (getcwd(cwd, sizeof(cwd)) != NULL) {
@@ -253,7 +255,7 @@ char **get_all_matches(char *prefix, int *match_count) {
 int read_input_with_autocomplete(char *buffer, size_t size) {
   int pos = 0;
   char c;
-  tab_count = 0;
+  int tab_count = 0;
   while (read(STDIN_FILENO, &c, 1) == 1) {
     if (c == '\n') {
       buffer[pos] = '\0';
@@ -263,12 +265,12 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
     else if (c == '\t') {
       tab_count++;
       int match_count;
-      char **matches = get_all_matches(buffer, &match_count)
+      char **matches = get_all_matches(buffer, &match_count);
       if (match_count == 0){
         printf("\a");
       } else if (match_count == 1){
         // Auto complete
-        const char *to_add = &matches[0].name[pos];
+        const char *to_add = &matches[0][pos];
           
         strcat(buffer, to_add);
         printf("%s", to_add);
@@ -417,6 +419,8 @@ void handle_external(char *command, char **argv, char *out_file, char *err_file,
 
 // --- MAIN LOOP ---
 int main(int argc, char *main_argv[]) {
+  (void) argc;
+  (void) main_argv;
   setbuf(stdout, NULL);
   enableRawMode();
   char inp[1024];
