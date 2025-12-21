@@ -252,6 +252,27 @@ char **get_all_matches(char *prefix, int *match_count) {
     *match_count = count;
     return matches;
 }
+char* longest_common_prefix(char** names, int names_size) {
+  if (names_size == 0) return strdup("");
+  if (names_size == 1) return strdup(names[0]);
+
+  // Because the list is sorted, we only need to compare 
+  // the first and the last string to find the common prefix 
+  // for the entire set.
+  char* first = names[0];
+  char* last = names[names_size - 1];
+  int i = 0;
+
+  while (first[i] && last[i] && first[i] == last[i]) {
+    i++;
+  }
+
+  char* prefix = malloc(i + 1);
+  strncpy(prefix, first, i);
+  prefix[i] = '\0';
+
+  return prefix;
+}
 int read_input_with_autocomplete(char *buffer, size_t size) {
   int pos = 0;
   char c;
@@ -284,13 +305,28 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
         if (tab_count == 1){
           printf("\a");
         } else if (tab_count == 2){
-          // Print the list
-          printf("\n");
-          for(int match_no=0; match_no<match_count; match_no++){
-            printf("%s  ", matches[match_no]);
+          // Check LCP
+          char *prefix = longest_common_prefix(matches, match_count);
+          if (strcmp(prefix, "")){
+            // Print the list
+            printf("\n");
+            for(int match_no=0; match_no<match_count; match_no++){
+              printf("%s  ", matches[match_no]);
+            }
+            printf("\n$ %s", buffer);
+            // Restore the cursor -> printf the prompt "$ " and the buffer contents
+          } else{
+            // Auto complete
+            strcat(buffer, prefix);
+            printf("%s", prefix);
+            
+            // Add trailing space
+            strcat(buffer, " ");
+            printf(" ");
+            
+            pos += strlen(prefix) + 1;
           }
-          printf("\n$ %s", buffer);
-          // Restore the cursor -> printf the prompt "$ " and the buffer contents
+          
         }
       }
       
