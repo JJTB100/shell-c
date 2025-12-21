@@ -287,7 +287,7 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
           // Print the list
           printf("\n");
           for(int match_no=0; match_no<match_count; match_no++){
-            printf("%s ", matches[match_no]);
+            printf("%s  ", matches[match_no]);
           }
           printf("\n$ %s", buffer);
           // Restore the cursor -> printf the prompt "$ " and the buffer contents
