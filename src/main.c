@@ -191,11 +191,13 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       return 0;
     } 
     else if (c == '\t') {
+      int found = 0;
       // Look at buffer content so far (0 to pos)
       for(int i=0; builtins[i].name != NULL; i++){
         // Compare against builtins[]
         if (strncmp(buffer, builtins[i].name, pos) == 0) {      
           // If match found, append to buffer and printf the extra chars
+          found = 1;
           int ptr_to_add = pos;
           const char *to_add = &builtins[i].name[ptr_to_add];
           strcat(buffer, to_add);
@@ -207,6 +209,9 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
           pos++;
           break;
         }
+      }
+      if (found == 0){
+        printf("\x07");
       }
     } 
     else if (c == 127) { // Backspace
