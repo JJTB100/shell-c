@@ -285,6 +285,7 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
           printf("\a");
         } else if (tab_count == 2){
           // Print the list
+          printf("\n");
           for(int match_no=0; match_no<match_count; match_no++){
             printf("%s ", matches[match_no]);
           }
