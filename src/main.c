@@ -180,58 +180,80 @@ void enableRawMode(){
   raw.c_lflag &= ~(ECHO | ICANON);
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
-int try_path_completion(char *buffer, int *pos_ptr) {
-  char *path_env = getenv("PATH");
-  if (path_env == NULL) return 0;
+int compare_strings(const void *a, const void *b) {
+    return strcmp(*(const char **)a, *(const char **)b);
+}
 
-  char *path_copy = strdup(path_env);
-  char *dir = strtok(path_copy, ":");
-  int pos = *pos_ptr;
+// Returns a NULL-terminated array of matching strings. 
+// Sets *match_count to the number of matches found.
+char **get_all_matches(char *prefix, int *match_count) {
+    int capacity = 10;
+    int count = 0;
+    char **matches = malloc(capacity * sizeof(char *));
+    int prefix_len = strlen(prefix);
 
-  while (dir != NULL) {
-    DIR *d = opendir(dir);
-    if (d == NULL) {
-      dir = strtok(NULL, ":");
-      continue;
+    // Search Builtins
+    for (int i = 0; builtins[i].name != NULL; i++) {
+        if (strncmp(prefix, builtins[i].name, prefix_len) == 0) {
+            if (count >= capacity) {
+                capacity *= 2;
+                matches = realloc(matches, capacity * sizeof(char *));
+            }
+            matches[count++] = strdup(builtins[i].name);
+        }
     }
 
-    struct dirent *entry;
-    while ((entry = readdir(d)) != NULL) {
-      // Check prefix match, excluding "." and ".."
-      if (strncmp(buffer, entry->d_name, pos) == 0 &&
-          strcmp(entry->d_name, ".") != 0 &&
-          strcmp(entry->d_name, "..") != 0) {
-        
-        // Calculate suffix
-        char *to_add = entry->d_name + pos;
-        
-        // Append suffix
-        strcat(buffer, to_add);
-        printf("%s", to_add);
-        
-        // Append trailing space
-        strcat(buffer, " ");
-        printf(" ");
-        
-        // Update position pointer
-        *pos_ptr += strlen(to_add) + 1;
-        
-        closedir(d);
+    // Search PATH
+    char *path_env = getenv("PATH");
+    if (path_env != NULL) {
+        char *path_copy = strdup(path_env);
+        char *dir = strtok(path_copy, ":");
+
+        while (dir != NULL) {
+            DIR *d = opendir(dir);
+            if (d != NULL) {
+                struct dirent *entry;
+                while ((entry = readdir(d)) != NULL) {
+                    // Check prefix match
+                    if (strncmp(prefix, entry->d_name, prefix_len) == 0 &&
+                        strcmp(entry->d_name, ".") != 0 &&
+                        strcmp(entry->d_name, "..") != 0) {
+                        
+                        // Check for duplicates before adding
+                        int is_duplicate = 0;
+                        for(int k=0; k<count; k++) {
+                            if(strcmp(matches[k], entry->d_name) == 0) {
+                                is_duplicate = 1;
+                                break;
+                            }
+                        }
+                        if(is_duplicate) continue;
+
+                        if (count >= capacity) {
+                            capacity *= 2;
+                            matches = realloc(matches, capacity * sizeof(char *));
+                        }
+                        matches[count++] = strdup(entry->d_name);
+                    }
+                }
+                closedir(d);
+            }
+            dir = strtok(NULL, ":");
+        }
         free(path_copy);
-        return 1; // Found
-      }
     }
-    closedir(d);
-    dir = strtok(NULL, ":");
-  }
 
-  free(path_copy);
-  return 0;
+    // Sort matches alphabetically
+    qsort(matches, count, sizeof(char *), compare_strings);
+
+    matches[count] = NULL; // Null-terminate the array
+    *match_count = count;
+    return matches;
 }
 int read_input_with_autocomplete(char *buffer, size_t size) {
   int pos = 0;
   char c;
-  
+  tab_count = 0;
   while (read(STDIN_FILENO, &c, 1) == 1) {
     if (c == '\n') {
       buffer[pos] = '\0';
@@ -239,32 +261,36 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       return 0;
     } 
     else if (c == '\t') {
-      int found = 0;
-      // Look at buffer content so far (0 to pos)
-      for(int i=0; builtins[i].name != NULL; i++){
-        // Compare against builtins[]
-        if (strncmp(buffer, builtins[i].name, pos) == 0) {      
-          // If match found, append to buffer and printf the extra chars
-          found = 1;
-          const char *to_add = &builtins[i].name[pos];
-          strcat(buffer, to_add);
-          printf("%s", to_add);
-          pos = pos + strlen(to_add);
-
-          strcat(buffer, " ");
-          printf(" ");
-          pos++;
-          break;
+      tab_count++;
+      int match_count;
+      char **matches = get_all_matches(buffer, &match_count)
+      if (match_count == 0){
+        printf("\a");
+      } else if (match_count == 1){
+        // Auto complete
+        const char *to_add = &matches[0].name[pos];
+          
+        strcat(buffer, to_add);
+        printf("%s", to_add);
+        
+        // Add trailing space
+        strcat(buffer, " ");
+        printf(" ");
+        
+        pos += strlen(to_add) + 1;
+      } else{ // higher match_count
+        if (tab_count == 1){
+          printf("\a");
+        } else if (tab_count == 2){
+          // Print the list
+          for(int match_no=0; match_no<match_count; match_no++){
+            printf("%s ", matches[match_no]);
+          }
+          printf("\n$ %s", buffer);
+          // Restore the cursor -> printf the prompt "$ " and the buffer contents
         }
       }
-      if (!found){
-        if(try_path_completion(buffer, &pos)){
-          found = 1;
-        }
-        else{
-          printf("\x07");
-        }
-      }
+      
     } 
     else if (c == 127) { // Backspace
       if (pos > 0) {
