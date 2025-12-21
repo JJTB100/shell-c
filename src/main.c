@@ -277,6 +277,10 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
   int pos = 0;
   char c;
   int tab_count = 0;
+
+  // IMPORTANT: Initialize buffer to empty string to ensure clean start
+  buffer[0] = '\0'; 
+
   while (read(STDIN_FILENO, &c, 1) == 1) {
     if (c == '\n') {
       buffer[pos] = '\0';
@@ -287,57 +291,66 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       tab_count++;
       int match_count;
       char **matches = get_all_matches(buffer, &match_count);
+
       if (match_count == 0){
-        printf("\a");
-      } else if (match_count == 1){
-        // Auto complete
+        printf("\a"); // Bell
+      } 
+      else if (match_count == 1){
+        // SINGLE MATCH
+        // This block was mostly correct, but let's make it robust
         const char *to_add = &matches[0][pos];
           
-        strcat(buffer, to_add);
-        printf("%s", to_add);
+        if (strlen(to_add) > 0) {
+            strcat(buffer, to_add);
+            printf("%s", to_add);
+            pos += strlen(to_add);
+        }
         
-        // Add trailing space
+        // Only add space if we actually completed a word
+        // (Optional preference, but standard for shells)
         strcat(buffer, " ");
         printf(" ");
+        pos++;
+      } 
+      else { // MULTIPLE MATCHES
+        char *prefix = longest_common_prefix(matches, match_count);
         
-        pos += strlen(to_add) + 1;
-      } else{ // higher match_count
-        if (tab_count == 1){
-          printf("\a");
-        } else if (tab_count == 2){
-          // Check LCP
-          char *prefix = longest_common_prefix(matches, match_count);
-          if (strcmp(prefix, "")){
-            // Print the list
+        // 1. Attempt to extend the current word
+        if (strlen(prefix) > (size_t)pos) {
+          char *suffix = prefix + pos; 
+          strcat(buffer, suffix);
+          printf("%s", suffix);
+          pos += strlen(suffix);
+        } else {
+            // 2. If we couldn't extend (e.g. "e" -> "e"), ring the bell
+            // only on the first tab press.
+            if (tab_count == 1) printf("\a");
+        }
+        
+        // 3. If this is the second tab press, show the list
+        if (tab_count == 2){
             printf("\n");
             for(int match_no=0; match_no<match_count; match_no++){
               printf("%s  ", matches[match_no]);
             }
             printf("\n$ %s", buffer);
-            // Restore the cursor -> printf the prompt "$ " and the buffer contents
-          } else{
-            // Auto complete
-            strcat(buffer, prefix);
-            printf("%s", prefix);
-            
-            // Add trailing space
-            strcat(buffer, " ");
-            printf(" ");
-            
-            pos += strlen(prefix) + 1;
-          }
-          
+            tab_count = 0; // Reset so next tab starts fresh
         }
+        
+        free(prefix);
       }
       
     } 
     else if (c == 127) { // Backspace
+      tab_count = 0; // Reset tab count on edit
       if (pos > 0) {
         pos--;
-        printf("\b \b"); // Move back, print space, move back again
+        buffer[pos] = '\0'; // Ensure buffer is null-terminated on backspace
+        printf("\b \b");
       }
     } 
     else {
+      tab_count = 0; // Reset tab count on normal typing
       if (size > 0 && (size_t)pos < size - 1) {
         buffer[pos++] = c;
         buffer[pos] = '\0';
