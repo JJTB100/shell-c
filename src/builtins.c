@@ -43,7 +43,6 @@ int do_history(char **argv) {
     fclose(appendTo); 
     return 0;
   } else if (strcmp(argv[1], "-w") == 0) {
-    // 1. Guard against missing argument
     if (!argv[2]) {
       printf("Error: Missing destination filename.\n");
       return 1;
@@ -62,7 +61,7 @@ int do_history(char **argv) {
     }
 
     char buffer[256];
-    // 2. Efficient copy loop
+    // Efficient copy loop
     while (fgets(buffer, sizeof(buffer), src)) {
       fputs(buffer, dest);
     }
@@ -70,33 +69,62 @@ int do_history(char **argv) {
     fclose(src);
     fclose(dest);
     return 0;
+  } else if (strcmp(argv[1], "-a") == 0) {
+    if (!argv[2]) {
+      printf("Error: Missing destination filename.\n");
+      return 1;
+    }
+
+    FILE *src = fopen(filename, "r");
+    // If no history exists yet, there is nothing to copy. 
+    // You might want to create an empty file or just return.
+    if (!src) return 0; 
+
+    FILE *dest = fopen(argv[2], "a");
+    if (!dest) {
+      printf("Error: Could not open %s for appending.\n", argv[2]);
+      fclose(src);
+      return 1;
+    }
+
+    char buffer[256];
+    // Efficient copy loop
+    while (fgets(buffer, sizeof(buffer), src)) {
+      fputs(buffer, dest);
+    }
+
+    fclose(src);
+    fclose(dest);
+    return 0;
+  }else{
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return 1;
+    
+    if (argv[1] && atoi(argv[1]) > 0) {
+      int limit = atoi(argv[1]);
+      char lines[limit][256]; // VLA on stack
+      int total = 0;
+
+      while (fgets(lines[total % limit], sizeof(lines[0]), fp)) {
+          total++;
+      }
+
+      int count = (total < limit) ? total : limit;
+      int start = (total < limit) ? 0 : (total % limit);
+
+      for (int i = 0; i < count; i++) {
+          printf("    %d  %s", total - count + i + 1, lines[(start + i) % limit]);
+      }
+    }else {
+      char line[256];
+      int count = 0;
+      while (fgets(line, sizeof(line), fp)) {
+        printf("    %d  %s", ++count, line);
+      }
+    }
+    fclose(fp);
   }
-  FILE *fp = fopen(filename, "r");
-  if (!fp) return 1;
   
-  if (argv[1] && atoi(argv[1]) > 0) {
-    int limit = atoi(argv[1]);
-    char lines[limit][256]; // VLA on stack
-    int total = 0;
-
-    while (fgets(lines[total % limit], sizeof(lines[0]), fp)) {
-        total++;
-    }
-
-    int count = (total < limit) ? total : limit;
-    int start = (total < limit) ? 0 : (total % limit);
-
-    for (int i = 0; i < count; i++) {
-        printf("    %d  %s", total - count + i + 1, lines[(start + i) % limit]);
-    }
-  }else {
-    char line[256];
-    int count = 0;
-    while (fgets(line, sizeof(line), fp)) {
-      printf("    %d  %s", ++count, line);
-    }
-  }
-  fclose(fp);
   return 0;
 }
 int do_echo(char **argv) {
