@@ -172,13 +172,16 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
   char c;
   int tab_count = 0;
 
+  int echo_enabled = (orig_termios.c_lflag & ECHO);
+  
   // IMPORTANT: Initialize buffer to empty string to ensure clean start
+
   buffer[0] = '\0'; 
 
   while (read(STDIN_FILENO, &c, 1) == 1) {
     if (c == '\n'|| c == '\r') {
       buffer[pos] = '\0';
-      printf("\n");
+      if (echo_enabled) printf("\n");
       return 0;
     } else if (c == '\033') { // Escape sequence detected
       char seq[3];
@@ -263,7 +266,7 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       if (pos > 0) {
         pos--;
         buffer[pos] = '\0'; // Ensure buffer is null-terminated on backspace
-        printf("\b \b");
+        if (echo_enabled) printf("\b \b");
       }
     } 
     else {
@@ -271,7 +274,7 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       if (size > 0 && (size_t)pos < size - 1) {
         buffer[pos++] = c;
         buffer[pos] = '\0';
-        printf("%c", c);
+        if (echo_enabled) printf("%c", c);
       }
     }
   }
