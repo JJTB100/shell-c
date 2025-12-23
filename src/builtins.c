@@ -42,6 +42,34 @@ int do_history(char **argv) {
     fclose(readFrom);
     fclose(appendTo); 
     return 0;
+  } else if (strcmp(argv[1], "-w") == 0) {
+    // 1. Guard against missing argument
+    if (!argv[2]) {
+      printf("Error: Missing destination filename.\n");
+      return 1;
+    }
+
+    FILE *src = fopen(filename, "r");
+    // If no history exists yet, there is nothing to copy. 
+    // You might want to create an empty file or just return.
+    if (!src) return 0; 
+
+    FILE *dest = fopen(argv[2], "w");
+    if (!dest) {
+      printf("Error: Could not open %s for writing.\n", argv[2]);
+      fclose(src);
+      return 1;
+    }
+
+    char buffer[256];
+    // 2. Efficient copy loop
+    while (fgets(buffer, sizeof(buffer), src)) {
+      fputs(buffer, dest);
+    }
+
+    fclose(src);
+    fclose(dest);
+    return 0;
   }
   FILE *fp = fopen(filename, "r");
   if (!fp) return 1;
