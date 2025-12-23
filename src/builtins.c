@@ -26,6 +26,7 @@ int do_history(char **argv){
   int line_num = 1;
   while(fgets(line, 256, fptr)){
     printf("    %d  %s", line_num, line);
+    line_num++;
   }
   fclose(fptr);
   return 0;
