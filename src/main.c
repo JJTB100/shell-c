@@ -20,6 +20,13 @@ typedef struct Command {
     // -- Pipeline Link --
     struct Command *next;  // Pointer to the next command in the pipeline (or NULL)
 } Command;
+int is_builtin(char *name) {
+    if (name == NULL) return 0;
+    for (int i = 0; builtins[i].name != NULL; i++) {
+        if (strcmp(name, builtins[i].name) == 0) return 1;
+    }
+    return 0;
+}
 Command * create_command() {
     Command *cmd = malloc(sizeof(Command));
     if (!cmd) return NULL;
@@ -102,6 +109,10 @@ void execute_pipeline(Command *head){
   Command *cmd = head;
   while (cmd != NULL){
     // Create a pipe
+    if (cmd->argv[0] == NULL) {
+        cmd = cmd->next;
+        continue;
+    }
     if (cmd->next != NULL){
       if (pipe(pipe_fd)==-1){perror("pipe");return;}
     }
@@ -147,8 +158,11 @@ void execute_pipeline(Command *head){
         close(fd);
       }
       // Execute
-      
+      if (handle_builtin(cmd->argv[0], cmd->argv, NULL, NULL, 0, 0)) {
+          exit(0); // Success
+      }
       execvp(cmd->argv[0], cmd->argv);
+      fprintf(stderr, "%s: command not found\n", cmd->argv[0]);
       exit(1);
     } else{
       // --- PARENT PROCESS ---
@@ -162,8 +176,6 @@ void execute_pipeline(Command *head){
         close(pipe_fd[1]);
         prev_read_fd = pipe_fd[0];
       }
-
-      // Wait logic
     }
 
     cmd = cmd->next;
@@ -184,18 +196,15 @@ int main(int argc, char *main_argv[]) {
     if(interactive){
       printf("$ ");
       fflush(stdout);
-      // Using the custom read function instead of fgets
       if (read_input_with_autocomplete(inp, 1024) != 0) break;
     } else{
       if (fgets(inp, sizeof(inp), stdin) == NULL) break;
       size_t len = strlen(inp);
-            if (len > 0 && inp[len - 1] == '\n') {
-                inp[len - 1] = '\0';
-            }
+      if (len > 0 && inp[len - 1] == '\n') {
+          inp[len - 1] = '\0';
+      }
     }
     
-    
-
     char *argv[100];
     int num_token = tokenise(inp, argv);
 
@@ -204,10 +213,20 @@ int main(int argc, char *main_argv[]) {
     }
 
     Command *first_cmd = parse(num_token, argv);    
+    if (!first_cmd || !first_cmd->argv[0]) {
+        free_commands(first_cmd);
+        continue;
+    }
 
-    execute_pipeline(first_cmd);
+    if (first_cmd->next == NULL && is_builtin(first_cmd->argv[0])) {
+        handle_builtin(first_cmd->argv[0], first_cmd->argv, 
+                       first_cmd->output_file, first_cmd->error_file, 
+                       first_cmd->append_out, first_cmd->append_err);
+    } else {
+        // Run external commands OR pipelines (forking involved)
+        execute_pipeline(first_cmd);
+    }
     
-
     free_commands(first_cmd);
   }
 
