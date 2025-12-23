@@ -176,7 +176,7 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
   buffer[0] = '\0'; 
 
   while (read(STDIN_FILENO, &c, 1) == 1) {
-    if (c == '\n') {
+    if (c == '\n'|| c == '\r') {
       buffer[pos] = '\0';
       printf("\n");
       return 0;
