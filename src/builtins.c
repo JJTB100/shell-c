@@ -18,27 +18,29 @@ Builtin builtins[] = {
 };
 
 // --- IMPLEMENTATIONS ---
-int do_history(char **argv){
-  // Open history file
-  FILE *fptr = fopen("term_history.txt", "r");
-  if (fptr == NULL) return 1;
-  
-  int num_lines = argv[1] != NULL ? atoi(argv[1]) : 10;
-  char lines[num_lines][256];
+int do_history(char **argv) {
+  FILE *fp = fopen("term_history.txt", "r");
+  if (!fp) return 1;
+
+  // Ensure valid positive integer, default to 10
+  int limit = (argv[1] && atoi(argv[1]) > 0) ? atoi(argv[1]) : 10;
+  char lines[limit][256];
   int total = 0;
-  
-  while (fgets(lines[total % num_lines], 256, fptr) && total < num_lines * 2) {
-    total++;
+
+  // Read entire file using circular buffer
+  while (fgets(lines[total % limit], sizeof(lines[0]), fp)) {
+      total++;
   }
-  fclose(fptr);
-  
-  int start = (total > num_lines) ? (total % num_lines) : 0;
-  int count = (total > num_lines) ? num_lines : total;
-  
+  fclose(fp);
+
+  // Determine how many lines to print and where to start
+  int count = (total < limit) ? total : limit;
+  int start = (total < limit) ? 0 : (total % limit);
+
   for (int i = 0; i < count; i++) {
-    printf("    %d  %s", total - count + i + 1, lines[(start + i) % num_lines]);
+      printf("    %d  %s", total - count + i + 1, lines[(start + i) % limit]);
   }
-  
+
   return 0;
 }
 int do_echo(char **argv) {
