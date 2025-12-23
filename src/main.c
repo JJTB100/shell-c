@@ -124,7 +124,7 @@ void execute_pipeline(Command *head){
       // Connect Input
       if(cmd->input_file != NULL){
         int fd = open(cmd->input_file, O_RDONLY);
-        if(fd == -1){ perror("open input"); exit(1); }
+        if(fd == -1){ perror("open input"); _exit(1); }
         dup2(fd, STDIN_FILENO);
         close(fd);
       } 
@@ -140,7 +140,7 @@ void execute_pipeline(Command *head){
       if(cmd->output_file != NULL){
         int flags = O_WRONLY | O_CREAT | (cmd->append_out ? O_APPEND : O_TRUNC);
         int fd = open(cmd->output_file, flags, 0644);
-        if(fd == -1){ perror("open output"); exit(1); }
+        if(fd == -1){ perror("open output"); _exit(1); }
         dup2(fd, STDOUT_FILENO);
         close(fd);
 
@@ -153,13 +153,13 @@ void execute_pipeline(Command *head){
       if(cmd->error_file != NULL){
         int flags = O_WRONLY | O_CREAT | (cmd->append_err ? O_APPEND : O_TRUNC);
         int fd = open(cmd->error_file, flags, 0644);
-        if(fd == -1){ perror("open error"); exit(1); }
+        if(fd == -1){ perror("open error"); _exit(1); }
         dup2(fd, STDERR_FILENO);
         close(fd);
       }
       // Execute
       if (handle_builtin(cmd->argv[0], cmd->argv, NULL, NULL, 0, 0)) {
-          exit(0); // Success
+         _exit(0); // Success
       }
       execvp(cmd->argv[0], cmd->argv);
       fprintf(stderr, "%s: command not found\n", cmd->argv[0]);
