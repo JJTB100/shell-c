@@ -44,7 +44,7 @@ int do_history(char **argv) {
       printf("    %d  %s", ++count, line);
     }
   }
-
+  fclose(fp);
   return 0;
 }
 int do_echo(char **argv) {
