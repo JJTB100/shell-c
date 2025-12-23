@@ -22,7 +22,7 @@ int do_history(char **argv) {
   char * filename = "term_history.txt";
   if(strcmp(argv[1], "-r")==0){
     // READ FROM FILE
-    filename = strcpy(argv[2]);
+    strcpy(filename, argv[2]);
   }
   FILE *fp = fopen(filename, "r");
   if (!fp) return 1;
