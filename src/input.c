@@ -79,7 +79,47 @@ void enableRawMode(){
 int compare_strings(const void *a, const void *b) {
     return strcmp(*(const char **)a, *(const char **)b);
 }
+// Returns the N-th command from the end (1 = last command, 2 = second to last, etc.)
+// Returns NULL if depth is invalid or file error
+char *get_history_line(int depth) {
+    if (depth <= 0) return NULL;
+    
+    FILE *fp = fopen("term_history.txt", "r");
+    if (!fp) return NULL;
 
+    // 1. Count total lines
+    int total_lines = 0;
+    char temp[1024];
+    while (fgets(temp, sizeof(temp), fp)) {
+        total_lines++;
+    }
+
+    // 2. Target line index (0-based)
+    int target_index = total_lines - depth;
+    if (target_index < 0) {
+        fclose(fp);
+        return NULL; // Requested further back than history exists
+    }
+
+    // 3. Rewind and fetch target
+    rewind(fp);
+    int current_line = 0;
+    static char result[1024]; // Static buffer to return string safely
+    
+    while (fgets(result, sizeof(result), fp)) {
+        if (current_line == target_index) {
+            // Strip newline
+            size_t len = strlen(result);
+            if (len > 0 && result[len - 1] == '\n') result[len - 1] = '\0';
+            fclose(fp);
+            return result;
+        }
+        current_line++;
+    }
+
+    fclose(fp);
+    return NULL;
+}
 // Returns a NULL-terminated array of matching strings. 
 // Sets *match_count to the number of matches found.
 char **get_all_matches(char *prefix, int *match_count) {
@@ -171,13 +211,13 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
   int pos = 0;
   char c;
   int tab_count = 0;
-
+  static int history_depth = 0;
   int echo_enabled = (orig_termios.c_lflag & ECHO);
   
   // IMPORTANT: Initialize buffer to empty string to ensure clean start
 
   buffer[0] = '\0'; 
-
+  if (pos == 0 && buffer[0] == '\0') history_depth = 0;
   while (read(STDIN_FILENO, &c, 1) == 1) {
     if (c == '\n'|| c == '\r') {
       buffer[pos] = '\0';
@@ -193,41 +233,42 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       if (seq[0] == '[') {
         switch (seq[1]) {
           case 'A': // Up Arrow
-            FILE *fp = fopen("term_history.txt", "r");
-            char last_line[256] = {0};
-
-            if (fp != NULL) {
-                char temp[256];
-                // Read through the file; the last successful read is the last line
-                while (fgets(temp, sizeof(temp), fp) != NULL) {
-                    // Ignore empty lines (just newlines) if necessary
-                    if (strlen(temp) > 1) {
-                        strcpy(last_line, temp);
-                    }
-                }
-                fclose(fp);
-            }
-
-            // Only update if we found a history line
-            if (strlen(last_line) > 0) {
-                // 1. Strip the trailing newline from the file
-                size_t len = strlen(last_line);
-                if (len > 0 && last_line[len - 1] == '\n') {
-                    last_line[len - 1] = '\0';
-                }
-
-                // 2. Replace the current buffer
-                strncpy(buffer, last_line, size - 1);
-                buffer[size - 1] = '\0'; // Safety null-term
+            {
+              char *cmd = get_history_line(history_depth + 1);
+              if (cmd) {
+                history_depth++; // Only increment if we found a line
+                
+                strncpy(buffer, cmd, size - 1);
+                buffer[size - 1] = '\0';
                 pos = strlen(buffer);
-
-                // 3. Overwrite the visual output
-                // \r moves to start, \033[K clears the rest of the line
-                printf("\r$ %s\033[K", buffer);
+                printf("\r$ %s\033[K", buffer); // Overwrite line
+              } else {
+                printf("\a"); // Bell (End of history)
+              }
             }
             break;
           case 'B': // Down Arrow
-            // TODO: Implement History (Next command)
+            if (history_depth > 0) {
+              history_depth--; // Move towards present
+              
+              if (history_depth == 0) {
+                // Return to empty prompt (or stash if you implemented it)
+                buffer[0] = '\0';
+                pos = 0;
+                printf("\r$ \033[K");
+              } else {
+                // Fetch the newer command
+                char *cmd = get_history_line(history_depth);
+                if (cmd) {
+                    strncpy(buffer, cmd, size - 1);
+                    buffer[size - 1] = '\0';
+                    pos = strlen(buffer);
+                    printf("\r$ %s\033[K", buffer);
+                }
+              }
+            } else {
+                printf("\a"); // Bell (Already at bottom)
+            }
             break;
           case 'C': // Right Arrow
             // TODO: Move cursor right (requires tracking pos < length)
