@@ -193,7 +193,38 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       if (seq[0] == '[') {
         switch (seq[1]) {
           case 'A': // Up Arrow
-            // TODO: Implement History (Previous command)
+            FILE *fp = fopen("term_history.txt", "r");
+            char last_line[256] = {0};
+
+            if (fp != NULL) {
+                char temp[256];
+                // Read through the file; the last successful read is the last line
+                while (fgets(temp, sizeof(temp), fp) != NULL) {
+                    // Ignore empty lines (just newlines) if necessary
+                    if (strlen(temp) > 1) {
+                        strcpy(last_line, temp);
+                    }
+                }
+                fclose(fp);
+            }
+
+            // Only update if we found a history line
+            if (strlen(last_line) > 0) {
+                // 1. Strip the trailing newline from the file
+                size_t len = strlen(last_line);
+                if (len > 0 && last_line[len - 1] == '\n') {
+                    last_line[len - 1] = '\0';
+                }
+
+                // 2. Replace the current buffer
+                strncpy(buffer, last_line, size - 1);
+                buffer[size - 1] = '\0'; // Safety null-term
+                pos = strlen(buffer);
+
+                // 3. Overwrite the visual output
+                // \r moves to start, \033[K clears the rest of the line
+                printf("\r$ %s\033[K", buffer);
+            }
             break;
           case 'B': // Down Arrow
             // TODO: Implement History (Next command)
