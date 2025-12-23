@@ -181,14 +181,26 @@ int main(int argc, char *main_argv[]) {
   (void) argc;
   (void) main_argv;
   setbuf(stdout, NULL);
-  enableRawMode();
+  int interactive = isatty(STDIN_FILENO);
+  if(interactive)  enableRawMode();
+
   char inp[1024];
 
   while (1) {
-    printf("$ ");
+    if(interactive){
+      printf("$ ");
+      fflush(stdout);
+      // Using the custom read function instead of fgets
+      if (read_input_with_autocomplete(inp, 1024) != 0) break;
+    } else{
+      if (fgets(inp, sizeof(inp), stdin) == NULL) break;
+      size_t len = strlen(inp);
+            if (len > 0 && inp[len - 1] == '\n') {
+                inp[len - 1] = '\0';
+            }
+    }
     
-    // Using the custom read function instead of fgets
-    if (read_input_with_autocomplete(inp, 1024) != 0) break;
+    
 
     char *argv[100];
     int num_token = tokenise(inp, argv);
