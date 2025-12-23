@@ -23,7 +23,7 @@ int do_history(char **argv) {
   if(strcmp(argv[1], "-r")==0){
     // READ FROM FILE
     FILE *readFrom = fopen(argv[2], "r");
-    if(readFrom == -1){
+    if(!readFrom){
       printf("Could not find file %s\n", argv[2]);
       return 1;
     }
@@ -34,7 +34,8 @@ int do_history(char **argv) {
       fputs(buffer, appendTo);
     }
     fclose(readFrom);
-    fclose(appendTo);  
+    fclose(appendTo); 
+    return 0;
   }
   FILE *fp = fopen(filename, "r");
   if (!fp) return 1;
