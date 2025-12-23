@@ -22,23 +22,27 @@ int do_history(char **argv) {
   FILE *fp = fopen("term_history.txt", "r");
   if (!fp) return 1;
 
-  // Ensure valid positive integer, default to 10
-  int limit = (argv[1] && atoi(argv[1]) > 0) ? atoi(argv[1]) : 100000;
-  char lines[limit][256];
-  int total = 0;
+  if (argv[1] && atoi(argv[1]) > 0) {
+    int limit = atoi(argv[1]);
+    char lines[limit][256]; // VLA on stack
+    int total = 0;
 
-  // Read entire file using circular buffer
-  while (fgets(lines[total % limit], sizeof(lines[0]), fp)) {
-      total++;
-  }
-  fclose(fp);
+    while (fgets(lines[total % limit], sizeof(lines[0]), fp)) {
+        total++;
+    }
 
-  // Determine how many lines to print and where to start
-  int count = (total < limit) ? total : limit;
-  int start = (total < limit) ? 0 : (total % limit);
+    int count = (total < limit) ? total : limit;
+    int start = (total < limit) ? 0 : (total % limit);
 
-  for (int i = 0; i < count; i++) {
-      printf("    %d  %s", total - count + i + 1, lines[(start + i) % limit]);
+    for (int i = 0; i < count; i++) {
+        printf("    %d  %s", total - count + i + 1, lines[(start + i) % limit]);
+    }
+  }else {
+    char line[256];
+    int count = 0;
+    while (fgets(line, sizeof(line), fp)) {
+      printf("    %d  %s", ++count, line);
+    }
   }
 
   return 0;
