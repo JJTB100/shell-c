@@ -18,6 +18,7 @@ int do_exit(char **argv);
 int do_type(char **argv);
 int do_pwd(char **argv);
 int do_cd(char **argv);
+int do_history(char **argv);
 
 // Helper to execute builtins with redirection
 int handle_builtin(char *command, char **argv, char *out_file, char *err_file, int append_out, int append_err);
