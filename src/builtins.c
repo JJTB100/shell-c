@@ -22,7 +22,19 @@ int do_history(char **argv) {
   char * filename = "term_history.txt";
   if(strcmp(argv[1], "-r")==0){
     // READ FROM FILE
-    strcpy(filename, argv[2]);
+    FILE *readFrom = fopen(argv[2], "r");
+    if(readFrom == -1){
+      printf("Could not find file %s\n", argv[2]);
+      return 1;
+    }
+    FILE *appendTo = fopen(filename, "a");
+
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), readFrom)) {
+      fputs(buffer, appendTo);
+    }
+    fclose(readFrom);
+    fclose(appendTo);  
   }
   FILE *fp = fopen(filename, "r");
   if (!fp) return 1;
