@@ -19,9 +19,14 @@ Builtin builtins[] = {
 
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
-  FILE *fp = fopen("term_history.txt", "r");
+  char * filename = "term_history.txt";
+  if(strcmp(argv[1], "-r")==0){
+    // READ FROM FILE
+    filename = strcpy(argv[2]);
+  }
+  FILE *fp = fopen(filename, "r");
   if (!fp) return 1;
-
+  
   if (argv[1] && atoi(argv[1]) > 0) {
     int limit = atoi(argv[1]);
     char lines[limit][256]; // VLA on stack

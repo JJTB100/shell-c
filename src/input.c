@@ -87,21 +87,21 @@ char *get_history_line(int depth) {
     FILE *fp = fopen("term_history.txt", "r");
     if (!fp) return NULL;
 
-    // 1. Count total lines
+    // Count total lines
     int total_lines = 0;
     char temp[1024];
     while (fgets(temp, sizeof(temp), fp)) {
         total_lines++;
     }
 
-    // 2. Target line index (0-based)
+    // Target line index (0-based)
     int target_index = total_lines - depth;
     if (target_index < 0) {
         fclose(fp);
         return NULL; // Requested further back than history exists
     }
 
-    // 3. Rewind and fetch target
+    // Rewind and fetch target
     rewind(fp);
     int current_line = 0;
     static char result[1024]; // Static buffer to return string safely
