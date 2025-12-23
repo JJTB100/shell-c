@@ -1,9 +1,9 @@
 #!/bin/bash
 
-gcc -Wall -Wextra -Wpedantic src/main.c -o main
+make -C src
 
 if [[ "$1" == *"r"* ]] || [[ "$2" == *"r"* ]]; then
-    ./main
+    ./src/myshell
 fi
 
 if [[ "$1" == *"c"* ]] || [[ "$2" == *"c"* ]]; then
