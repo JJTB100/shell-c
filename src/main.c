@@ -203,33 +203,10 @@ int main(int argc, char *main_argv[]) {
       continue;
     }
 
-    Command *first_cmd = parse(num_token, argv);
-    int is_builtin = 0;
-    if (first_cmd->next == NULL) {
-      for (int i = 0; builtins[i].name != NULL; i++) {
-        if (strcmp(first_cmd->argv[0], builtins[i].name) == 0) {
-          int saved_stderr = dup(STDERR_FILENO);
-          if (first_cmd->error_file) {
-              int flags = O_WRONLY | O_CREAT | (first_cmd->append_err ? O_APPEND : O_TRUNC);
-              int fd = open(first_cmd->error_file, flags, 0644);
-              dup2(fd, STDERR_FILENO);
-              close(fd);
-          }
+    Command *first_cmd = parse(num_token, argv);    
 
-          builtins[i].handler(first_cmd->argv);
-
-          dup2(saved_stderr, STDERR_FILENO);
-          close(saved_stderr);
-
-          is_builtin = 1;
-          break;
-        }
-      }
-    }
-
-    if (!is_builtin) {
-        execute_pipeline(first_cmd);
-    }
+    execute_pipeline(first_cmd);
+    
 
     free_commands(first_cmd);
   }
