@@ -163,7 +163,7 @@ void execute_pipeline(Command *head){
       }
       execvp(cmd->argv[0], cmd->argv);
       fprintf(stderr, "%s: command not found\n", cmd->argv[0]);
-      exit(1);
+      _exit(1);
     } else{
       // --- PARENT PROCESS ---
       // cleanup
