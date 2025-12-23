@@ -174,122 +174,61 @@ void execute_pipeline(Command *head){
 int main(int argc, char *main_argv[]) {
   (void) argc;
   (void) main_argv;
-
   setbuf(stdout, NULL);
-
- int interactive = isatty(STDIN_FILENO);
- if (interactive) {
-   enableRawMode();
-  }
+  int interactive = isatty(STDIN_FILENO);
+  if(interactive)  enableRawMode();
 
   char inp[1024];
 
   while (1) {
-    /* ---- Prompt + Input ---- */
-    if (interactive) {
+    if(interactive){
       printf("$ ");
       fflush(stdout);
-
-      if (read_input_with_autocomplete(inp, sizeof(inp)) != 0) {
-        break;
-      }
-    } else {
-      if (fgets(inp, sizeof(inp), stdin) == NULL) {
-        break;
-      }
+      // Using the custom read function instead of fgets
+      if (read_input_with_autocomplete(inp, 1024) != 0) break;
+    } else{
+      if (fgets(inp, sizeof(inp), stdin) == NULL) break;
       size_t len = strlen(inp);
-      if (len > 0 && inp[len - 1] == '\n') {
-        inp[len - 1] = '\0';
-      }
+            if (len > 0 && inp[len - 1] == '\n') {
+                inp[len - 1] = '\0';
+            }
     }
+    
+    
 
-    /* ---- Tokenize ---- */
     char *argv[100];
     int num_token = tokenise(inp, argv);
+
     if (num_token == 0) {
       continue;
     }
 
-    /* ---- Parse ---- */
     Command *first_cmd = parse(num_token, argv);
-
-    /* ---- Standalone builtin handling (parent) ---- */
-    int handled = 0;
-
-    if (first_cmd->next == NULL && first_cmd->argv[0] != NULL) {
+    int is_builtin = 0;
+    if (first_cmd->next == NULL) {
       for (int i = 0; builtins[i].name != NULL; i++) {
         if (strcmp(first_cmd->argv[0], builtins[i].name) == 0) {
-
-          /* Save original fds */
-          int saved_stdin = dup(STDIN_FILENO);
-          int saved_stdout = dup(STDOUT_FILENO);
           int saved_stderr = dup(STDERR_FILENO);
-
-          /* stdin */
-          if (first_cmd->input_file) {
-            int fd = open(first_cmd->input_file, O_RDONLY);
-            if (fd < 0) {
-              perror("open");
-              goto restore_fds;
-            }
-            dup2(fd, STDIN_FILENO);
-            close(fd);
-          }
-
-          /* stdout */
-          if (first_cmd->output_file) {
-            int flags = O_WRONLY | O_CREAT |
-                  (first_cmd->append_out ? O_APPEND : O_TRUNC);
-            int fd = open(first_cmd->output_file, flags, 0644);
-            if (fd < 0) {
-              perror("open");
-              goto restore_fds;
-            }
-            dup2(fd, STDOUT_FILENO);
-            close(fd);
-          }
-
-          /* stderr */
           if (first_cmd->error_file) {
-            int flags = O_WRONLY | O_CREAT |
-                  (first_cmd->append_err ? O_APPEND : O_TRUNC);
-            int fd = open(first_cmd->error_file, flags, 0644);
-            if (fd < 0) {
-              perror("open");
-              goto restore_fds;
-            }
-            dup2(fd, STDERR_FILENO);
-            close(fd);
+              int flags = O_WRONLY | O_CREAT | (first_cmd->append_err ? O_APPEND : O_TRUNC);
+              int fd = open(first_cmd->error_file, flags, 0644);
+              dup2(fd, STDERR_FILENO);
+              close(fd);
           }
 
-          /* Execute builtin */
           builtins[i].handler(first_cmd->argv);
 
-restore_fds:
-          /* Restore fds */
-          dup2(saved_stdin, STDIN_FILENO);
-          dup2(saved_stdout, STDOUT_FILENO);
           dup2(saved_stderr, STDERR_FILENO);
-
-          close(saved_stdin);
-          close(saved_stdout);
           close(saved_stderr);
 
-          handled = 1;
+          is_builtin = 1;
           break;
         }
       }
-
-      /* exit must terminate the shell */
-      if (strcmp(first_cmd->argv[0], "exit") == 0) {
-        free_commands(first_cmd);
-        break;
-      }
     }
 
-    /* ---- Pipeline / external execution ---- */
-    if (!handled) {
-      execute_pipeline(first_cmd);
+    if (!is_builtin) {
+        execute_pipeline(first_cmd);
     }
 
     free_commands(first_cmd);
@@ -297,4 +236,3 @@ restore_fds:
 
   return 0;
 }
-
