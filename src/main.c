@@ -219,9 +219,14 @@ int main(int argc, char *main_argv[]) {
     }
 
     if (first_cmd->next == NULL && is_builtin(first_cmd->argv[0])) {
-        handle_builtin(first_cmd->argv[0], first_cmd->argv, 
+        int status = handle_builtin(first_cmd->argv[0], first_cmd->argv, 
                        first_cmd->output_file, first_cmd->error_file, 
                        first_cmd->append_out, first_cmd->append_err);
+    
+        if (status == -1) {
+            free_commands(first_cmd);
+            exit(0); // Actually exit the shell
+        }
     } else {
         // Run external commands OR pipelines (forking involved)
         execute_pipeline(first_cmd);
