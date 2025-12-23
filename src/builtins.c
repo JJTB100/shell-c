@@ -23,7 +23,7 @@ int do_history(char **argv) {
   if (!fp) return 1;
 
   // Ensure valid positive integer, default to 10
-  int limit = (argv[1] && atoi(argv[1]) > 0) ? atoi(argv[1]) : 10;
+  int limit = (argv[1] && atoi(argv[1]) > 0) ? atoi(argv[1]) : 100000;
   char lines[limit][256];
   int total = 0;
 
