@@ -20,8 +20,14 @@ Builtin builtins[] = {
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
   char * filename = "term_history.txt";
-  if(strcmp(argv[1], "-r")==0){
+  if (!argv[1]){
+    
+  } else if(strcmp(argv[1], "-r")==0){
     // READ FROM FILE
+    if (!argv[2]) {
+      printf("Error: Missing filename argument.\n");
+      return 1;
+    }
     FILE *readFrom = fopen(argv[2], "r");
     if(!readFrom){
       printf("Could not find file %s\n", argv[2]);
