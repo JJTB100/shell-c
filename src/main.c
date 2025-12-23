@@ -147,13 +147,7 @@ void execute_pipeline(Command *head){
         close(fd);
       }
       // Execute
-      // Builtins
-      for (int i = 0; builtins[i].name != NULL; i++) {
-          if (strcmp(cmd->argv[0], builtins[i].name) == 0) {
-              builtins[i].handler(cmd->argv);
-              exit(0);
-          }
-      }
+      
       execvp(cmd->argv[0], cmd->argv);
       exit(1);
     } else{
@@ -212,15 +206,30 @@ int main(int argc, char *main_argv[]) {
     Command *first_cmd = parse(num_token, argv);
     int is_builtin = 0;
     if (first_cmd->next == NULL) {
-        if (strcmp(first_cmd->argv[0], "exit") == 0) {
-            free_commands(first_cmd);
-            break; 
-        } 
-        else if (strcmp(first_cmd->argv[0], "cd") == 0) {
-            do_cd(first_cmd->argv); 
-            is_builtin = 1;
-        }
-    }
+      for (int i = 0; builtins[i].name != NULL; i++) {
+          if (strcmp(first_cmd->argv[0], builtins[i].name) == 0) {
+
+              int saved_stderr = dup(STDERR_FILENO);
+
+              if (first_cmd->error_file) {
+                  int flags = O_WRONLY | O_CREAT |
+                              (first_cmd->append_err ? O_APPEND : O_TRUNC);
+                  int fd = open(first_cmd->error_file, flags, 0644);
+                  dup2(fd, STDERR_FILENO);
+                  close(fd);
+              }
+
+              builtins[i].handler(first_cmd->argv);
+
+              dup2(saved_stderr, STDERR_FILENO);
+              close(saved_stderr);
+
+              is_builtin = 1;
+              break;
+          }
+      }
+  }
+
     if (!is_builtin) {
         execute_pipeline(first_cmd);
     }
