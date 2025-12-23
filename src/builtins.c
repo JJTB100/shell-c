@@ -13,11 +13,14 @@ Builtin builtins[] = {
   {"type", do_type},
   {"pwd",  do_pwd},
   {"cd", do_cd},
+  {"history", do_history},
   {NULL, NULL} // Marks end
 };
 
 // --- IMPLEMENTATIONS ---
-
+int do_history(char **argv){
+  return 0;
+}
 int do_echo(char **argv) {
   for (int i = 1; argv[i] != NULL; i++) {
     printf("%s", argv[i]);
