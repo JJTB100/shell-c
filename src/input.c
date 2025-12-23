@@ -9,14 +9,13 @@
 
 struct termios orig_termios;
 
-
-int parse_input(char *input, char **argv){
+int tokenise(char *input, char **argv){
   int argc = 0;
   int in_single_quotes = 0;
   int in_double_quotes = 0;
   char * current_token = input;
 
-  // Loop through every character checking for a single quote
+  // Loop through every character
   for (int i = 0; input[i] != '\0'; i++) {
     if(input[i] == '\'' && !in_double_quotes){
       in_single_quotes = !in_single_quotes;
@@ -48,6 +47,13 @@ int parse_input(char *input, char **argv){
       if (*current_token != '\0') {
         argv[argc++] = current_token;
       }
+      current_token = &input[i + 1];
+    } else if(input[i]=='|'&& !in_single_quotes && !in_double_quotes){
+      input[i] = '\0';
+      if (*current_token != '\0') {
+        argv[argc++] = current_token;
+      }
+      argv[argc++] = "|";
       current_token = &input[i + 1];
     }
   }
@@ -174,7 +180,30 @@ int read_input_with_autocomplete(char *buffer, size_t size) {
       buffer[pos] = '\0';
       printf("\n");
       return 0;
-    } 
+    } else if (c == '\033') { // Escape sequence detected
+      char seq[3];
+      // Read the next two bytes into a temporary buffer
+      // This strips them from the input stream so they don't get printed
+      if (read(STDIN_FILENO, &seq[0], 1) == 0) continue;
+      if (read(STDIN_FILENO, &seq[1], 1) == 0) continue;
+
+      if (seq[0] == '[') {
+        switch (seq[1]) {
+          case 'A': // Up Arrow
+            // TODO: Implement History (Previous command)
+            break;
+          case 'B': // Down Arrow
+            // TODO: Implement History (Next command)
+            break;
+          case 'C': // Right Arrow
+            // TODO: Move cursor right (requires tracking pos < length)
+            break;
+          case 'D': // Left Arrow
+            // TODO: Move cursor left (requires tracking pos > 0)
+            break;
+        }
+      }
+    }
     else if (c == '\t') {
       tab_count++;
       int match_count;

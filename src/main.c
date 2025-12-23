@@ -7,76 +7,175 @@
 #include <fcntl.h>
 #include "builtins.h"
 #include "input.h"
+typedef struct Command {
+    char **argv;           // Array of strings for execvp (e.g., {"ls", "-l", NULL})
+    int argc;              // Number of arguments
+    
+    // -- Redirection Support (Per-Command) --
+    char *input_file;      // For '<' (mostly used by the first command)
+    char *output_file;     // For '>' or '>>'
+    char *error_file;      // For '2>'
+    int append_out;        // Flag: 1 if '>>', 0 if '>'
+    int append_err;
+    // -- Pipeline Link --
+    struct Command *next;  // Pointer to the next command in the pipeline (or NULL)
+} Command;
+Command * create_command() {
+    Command *cmd = malloc(sizeof(Command));
+    if (!cmd) return NULL;
+    
+    cmd->argv = malloc(10 * sizeof(char*)); // Start with space for 10 args
+    cmd->argv[0] = NULL;
+    cmd->argc = 0;
+    
+    cmd->input_file = NULL;
+    cmd->output_file = NULL;
+    cmd->error_file = NULL;
+    cmd->append_out = 0;
+    cmd->append_err = 0;
+    
+    cmd->next = NULL;
+    return cmd;
+}
+Command * parse(int num_token, char **argv){
+  
+  Command *current_cmd = create_command();
+  Command *first_cmd = current_cmd;
+  for (int i=0; i<num_token; i++){
+    if(strcmp(argv[i], "|")==0){
+      Command *next_cmd = create_command();
+      current_cmd->next = next_cmd;
+      current_cmd = next_cmd;
 
-void parse_redirections(char **argv, char **out_file, char **err_file, int *append_out, int *append_err) {
-  for (int i=0; argv[i] != NULL; i++){
-    if (strcmp(argv[i], ">") == 0 || strcmp(argv[i], "1>") == 0) {
-      if (argv[i+1] == NULL) {
-        printf("Syntax error: expected file after >\n");
-        continue;
-      }
-      *out_file = argv[i+1];
-      argv[i] = NULL; // Cut the command off here
+    } else if (strcmp(argv[i], ">") == 0 || strcmp(argv[i], "1>") == 0) {
+      if (argv[i+1] == NULL) continue;      
+      current_cmd->output_file = argv[i+1];
+      i++;
     } else if (strcmp(argv[i], ">>") == 0 || strcmp(argv[i], "1>>") == 0) {
       if (argv[i+1] == NULL) continue;
-      *out_file = argv[i+1];
-      *append_out = 1; // Set append flag
-      argv[i] = NULL;
-    }
-    // Check for Standard Error Redirection
-    else if (strcmp(argv[i], "2>") == 0) {
+      current_cmd->output_file = argv[i+1];
+      current_cmd->append_out = 1; // Set append flag
+      i++;
+    } else if (strcmp(argv[i], "2>") == 0) {
       if (argv[i+1] == NULL) continue;
-      *err_file = argv[i+1];
-      *append_err = 0;
-      argv[i] = NULL;
-    }
-    else if (strcmp(argv[i], "2>>") == 0) {
+      current_cmd->error_file = argv[i+1];
+      current_cmd->append_err = 0;
+      i++;
+    } else if (strcmp(argv[i], "2>>") == 0) {
       if (argv[i+1] == NULL) continue;
-      *err_file = argv[i+1];
-      *append_err = 1;
-      argv[i] = NULL;
+      current_cmd->error_file = argv[i+1];
+      current_cmd->append_err = 1;
+      i++;
+    } else if (strcmp(argv[i], "<") == 0) {
+      if (argv[i+1] == NULL) {
+          printf("Syntax error: expected file after <\n");
+          continue;
+      }
+      current_cmd->input_file = argv[i+1];
+      i++;
+    } else{
+      current_cmd->argv[current_cmd->argc] = argv[i];
+      current_cmd->argc++;
+      current_cmd->argv[current_cmd->argc] = NULL;
     }
   }
+  return first_cmd;
 }
 
-void handle_external(char *command, char **argv, char *out_file, char *err_file, int append_out, int append_err) {
-  // Run External Program
-  pid_t pid = fork();
+void free_commands(Command *head) {
+    Command *current = head;
+    while (current != NULL) {
+        Command *next = current->next;
+        
+        // We only malloc'd 'argv' and the struct itself.
+        // The strings inside argv point to 'inp', so we don't free them here.
+        if (current->argv) free(current->argv);
+        free(current);
+        
+        current = next;
+    }
+}
+void execute_pipeline(Command *head){
+  int prev_read_fd = -1;
+  int pipe_fd[2];
 
-  if (pid == 0) {
-    // Child Process
-    // Redirect Stdout
-    if (out_file != NULL) {
-      int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
-      int fd = open(out_file, flags, 0644);
-      if (fd == -1) { perror("open out"); exit(1); }
-      dup2(fd, STDOUT_FILENO);
-      close(fd);
+  Command *cmd = head;
+  while (cmd != NULL){
+    // Create a pipe
+    if (cmd->next != NULL){
+      if (pipe(pipe_fd)==-1){perror("pipe");return;}
+    }
+    pid_t pid = fork();
+
+    if(pid==0){
+      // --- Child Process ---
+      
+      // Connect Input
+      if(cmd->input_file != NULL){
+        int fd = open(cmd->input_file, O_RDONLY);
+        if(fd == -1){ perror("open input"); exit(1); }
+        dup2(fd, STDIN_FILENO);
+        close(fd);
+      } 
+      else if(prev_read_fd != -1){
+        dup2(prev_read_fd, STDIN_FILENO);
+        close(prev_read_fd);
+      }
+
+
+      // Connect Output
+      if (cmd->next != NULL) close(pipe_fd[0]);
+
+      if(cmd->output_file != NULL){
+        int flags = O_WRONLY | O_CREAT | (cmd->append_out ? O_APPEND : O_TRUNC);
+        int fd = open(cmd->output_file, flags, 0644);
+        if(fd == -1){ perror("open output"); exit(1); }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+
+        if (cmd->next != NULL) close(pipe_fd[1]);
+      } else if (cmd->next != NULL){
+        dup2(pipe_fd[1], STDOUT_FILENO);
+        close(pipe_fd[1]);
+      }
+
+      if(cmd->error_file != NULL){
+        int flags = O_WRONLY | O_CREAT | (cmd->append_err ? O_APPEND : O_TRUNC);
+        int fd = open(cmd->error_file, flags, 0644);
+        if(fd == -1){ perror("open error"); exit(1); }
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+      }
+      // Execute
+      // Builtins
+      for (int i = 0; builtins[i].name != NULL; i++) {
+          if (strcmp(cmd->argv[0], builtins[i].name) == 0) {
+              builtins[i].handler(cmd->argv);
+              exit(0);
+          }
+      }
+      execvp(cmd->argv[0], cmd->argv);
+      exit(1);
+    } else{
+      // --- PARENT PROCESS ---
+      // cleanup
+      if (prev_read_fd != -1){
+        close(prev_read_fd);
+      }
+
+      // Set up input for the NEXT command
+      if (cmd->next != NULL){
+        close(pipe_fd[1]);
+        prev_read_fd = pipe_fd[0];
+      }
+
+      // Wait logic
     }
 
-    // Redirect Stderr
-    if (err_file != NULL) {
-      int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
-      int fd = open(err_file, flags, 0644);
-      if (fd == -1) { perror("open err"); exit(1); }
-      dup2(fd, STDERR_FILENO);
-      close(fd);
-    }
-
-    // execvp accepts the argv array directly
-    execvp(command, argv);
-    
-    printf("%s: command not found\n", command);
-    _exit(1);
-  } else if (pid > 0) {
-    // Parent Process
-    int status;
-    wait(&status);
-  } else {
-    perror("fork");
+    cmd = cmd->next;
   }
+  while(wait(NULL)>0);
 }
-
 // --- MAIN LOOP ---
 int main(int argc, char *main_argv[]) {
   (void) argc;
@@ -92,26 +191,29 @@ int main(int argc, char *main_argv[]) {
     if (read_input_with_autocomplete(inp, 1024) != 0) break;
 
     char *argv[100];
-    int parsed_argc = parse_input(inp, argv);
+    int num_token = tokenise(inp, argv);
 
-    if (parsed_argc == 0) {
+    if (num_token == 0) {
       continue;
     }
 
-    char *command = argv[0];
+    Command *first_cmd = parse(num_token, argv);
+    int is_builtin = 0;
+    if (first_cmd->next == NULL) {
+        if (strcmp(first_cmd->argv[0], "exit") == 0) {
+            free_commands(first_cmd);
+            break; 
+        } 
+        else if (strcmp(first_cmd->argv[0], "cd") == 0) {
+            do_cd(first_cmd->argv); 
+            is_builtin = 1;
+        }
+    }
+    if (!is_builtin) {
+        execute_pipeline(first_cmd);
+    }
 
-    char *out_file = NULL;
-    char *err_file = NULL;
-    int append_out = 0; // Flag for >>
-    int append_err = 0; // Flag for 2>>
-
-    parse_redirections(argv, &out_file, &err_file, &append_out, &append_err);
-
-    int builtin_result = handle_builtin(command, argv, out_file, err_file, append_out, append_err);
-    if (builtin_result == -1) return 0;
-    if (builtin_result == 1) continue;
-
-    handle_external(command, argv, out_file, err_file, append_out, append_err);
+    free_commands(first_cmd);
   }
 
   return 0;

@@ -6,6 +6,7 @@
 void enableRawMode();
 void disableRawMode();
 int read_input_with_autocomplete(char *buffer, size_t size);
-int parse_input(char *input, char **argv);
+int tokenise(char *input, char **argv);
+
 
 #endif
