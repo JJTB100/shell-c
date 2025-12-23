@@ -19,6 +19,15 @@ Builtin builtins[] = {
 
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv){
+  // Open history file
+  // print each line with number
+  FILE * fptr = fopen("term_history.txt", "r");
+  char line[256];
+  int line_num = 1;
+  while(fgets(line, 256, fptr)){
+    printf("    %d  %s", line_num, line);
+  }
+  fclose(fptr);
   return 0;
 }
 int do_echo(char **argv) {

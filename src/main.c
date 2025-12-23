@@ -204,6 +204,10 @@ int main(int argc, char *main_argv[]) {
           inp[len - 1] = '\0';
       }
     }
+
+    FILE *fptr = fopen("term_history.txt", "a");
+    fprintf(fptr, "%s\n", inp);
+    fclose(fptr);
     
     char *argv[100];
     int num_token = tokenise(inp, argv);
