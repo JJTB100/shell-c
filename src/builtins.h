@@ -24,4 +24,5 @@ int do_history(char **argv);
 int handle_builtin(char *command, char **argv, char *out_file, char *err_file, int append_out, int append_err);
 
 void load_session_start();
+char * get_history_filename();
 #endif

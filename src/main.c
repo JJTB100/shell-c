@@ -207,7 +207,7 @@ int main(int argc, char *main_argv[]) {
     }
 
    char *histfile = getenv("HISTFILE");
-    if (histfile == NULL) {
+    if (histfile == NULL || strcmp(histfile, "/dev/null") == 0) {
         histfile = "hist_file.txt"; // Default fallback
     }
 
