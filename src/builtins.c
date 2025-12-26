@@ -47,7 +47,7 @@ void load_session_start(const char *filename) {
 }
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
-  const char * filename = get_history_filename();
+  char * filename = (char*) get_history_filename();
   if (!argv[1]){
     FILE *fp = fopen(filename, "r");
     if (!fp) return 1;
