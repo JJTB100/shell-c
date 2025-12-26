@@ -7,8 +7,8 @@
 
 const char *get_history_filename() {
     const char *env = getenv("HISTFILE");
-    if(env) {
-        printf("[DEBUG] get_history_filename: HISTFILE='%s'\n", env);
+    if(!env) {
+        printf("No HISTFILE set, using default 'hist_file.txt'\n");
     }
     return env ? env : "hist_file.txt";
 
