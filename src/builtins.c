@@ -5,99 +5,163 @@
 #include <fcntl.h>
 #include "builtins.h"
 
-// --- GLOBAL STATE ---
-int next_line_to_save = 0; 
 
+// --- GLOBAL REGISTRY ---
+Builtin builtins[] = {
+  {"echo", do_echo},
+  {"exit", do_exit},
+  {"type", do_type},
+  {"pwd",  do_pwd},
+  {"cd", do_cd},
+  {"history", do_history},
+  {NULL, NULL} // Marks end
+};
+int next_line_to_save = 0;
+int session_start_line = 0;
 void load_session_start(const char *filename) {
-    next_line_to_save = 0;
+  next_line_to_save = 0;
 
-    if (!filename) {
-        fprintf(stderr, "[DEBUG] load_session_start: HISTFILE is NULL\n");
-        return;
-    }
-    
-    FILE *f = fopen(filename, "r");
-    if (!f) {
-        fprintf(stderr, "[DEBUG] load_session_start: Could not open %s (assuming new session)\n", filename);
-        return;
-    }
+  if (!filename) {
+      fprintf(stderr, "[DEBUG] load_session_start: HISTFILE is NULL\n");
+      return;
+  }
+  
+  FILE *f = fopen(filename, "r");
+  if (!f) {
+      fprintf(stderr, "[DEBUG] load_session_start: Could not open %s (assuming new session)\n", filename);
+      return;
+  }
 
-    int count = 0;
-    char buffer[1024];
-    while (fgets(buffer, sizeof(buffer), f)) {
-        count++;
-    }
-    fclose(f);
-    
-    next_line_to_save = count;
-    fprintf(stderr, "[DEBUG] load_session_start: %s has %d lines. next_line_to_save = %d\n", filename, count, next_line_to_save);
+  int count = 0;
+  char buffer[1024];
+  while (fgets(buffer, sizeof(buffer), f)) {
+      count++;
+  }
+  fclose(f);
+  
+  next_line_to_save = count;
+  fprintf(stderr, "[DEBUG] load_session_start: %s has %d lines. next_line_to_save = %d\n", filename, count, next_line_to_save);
 }
-
 // --- IMPLEMENTATIONS ---
-
 int do_history(char **argv) {
-    char *filename = getenv("HISTFILE");
-    if (!filename) {
-        fprintf(stderr, "[DEBUG] do_history: HISTFILE env var is not set!\n");
-        return 1;
+  char * filename = getenv("HISTFILE");
+  if (!argv[1]){
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return 1;
+    char line[1024];
+    int count = 0;
+    while (fgets(line, sizeof(line), fp)) {
+      printf("    %d  %s", ++count, line);
+    }
+  } else if(strcmp(argv[1], "-r")==0){
+    // READ FROM FILE
+    if (!argv[2]) {
+      printf("Error: Missing filename argument.\n");
+      return 1;
+    }
+    FILE *readFrom = fopen(argv[2], "r");
+    if(!readFrom){
+      printf("Could not find file %s\n", argv[2]);
+      return 1;
+    }
+    FILE *appendTo = fopen(filename, "a");
+
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), readFrom)) {
+      fputs(buffer, appendTo);
+    }
+    fclose(readFrom);
+    fclose(appendTo); 
+    return 0;
+  } else if (strcmp(argv[1], "-w") == 0) {
+    if (!argv[2]) {
+      printf("Error: Missing destination filename.\n");
+      return 1;
     }
 
-    if (!argv[1]) {
-        // "history" command
-        FILE *fp = fopen(filename, "r");
-        if (!fp) return 0;
-        char line[1024]; 
-        int count = 0;
-        while (fgets(line, sizeof(line), fp)) {
-            printf("    %d  %s", ++count, line);
-        }
-        fclose(fp);
-        return 0;
-    } 
-    else if (strcmp(argv[1], "-a") == 0) {
-        char *target_file = argv[2] ? argv[2] : filename;
-        
-        fprintf(stderr, "[DEBUG] history -a: Source='%s', Target='%s', next_line_to_save=%d\n", 
-                filename, target_file, next_line_to_save);
+    FILE *src = fopen(filename, "r");
+    // If no history exists yet, there is nothing to copy.
+    if (!src) return 0; 
 
-        FILE *fp_session = fopen(filename, "r");
-        if (!fp_session) {
-            fprintf(stderr, "[DEBUG] history -a: Could not read source file %s\n", filename);
-            return 0; 
-        }
+    FILE *dest = fopen(argv[2], "w");
+    if (!dest) {
+      printf("Error: Could not open %s for writing.\n", argv[2]);
+      fclose(src);
+      return 1;
+    }
 
-        FILE *fp_dest = fopen(target_file, "a");
-        if (!fp_dest) {
-            printf("Error: Could not open %s for appending.\n", target_file);
-            fclose(fp_session);
-            return 1;
-        }
+    char buffer[256];
+    // Efficient copy loop
+    while (fgets(buffer, sizeof(buffer), src)) {
+      fputs(buffer, dest);
+    }
 
-        char buffer[1024];
-        int current_line_idx = 0;
-        int written_count = 0;
-
-        while (fgets(buffer, sizeof(buffer), fp_session)) {
-            // Check if this line is "new"
-            if (current_line_idx >= next_line_to_save) {
-                fputs(buffer, fp_dest);
-                written_count++;
-            }
-            current_line_idx++;
-        }
-        
-        fprintf(stderr, "[DEBUG] history -a: Scanned %d total lines. Wrote %d new lines.\n", current_line_idx, written_count);
-
-        next_line_to_save = current_line_idx;
-        fclose(fp_session);
-        fclose(fp_dest);
-        return 0;
+    fclose(src);
+    fclose(dest);
+    return 0;
+  } else if (strcmp(argv[1], "-a") == 0) {
+    char *target_file;
+    if (argv[2]) {
+      target_file = argv[2];
+    } else {
+      target_file = filename;
+    }
+    FILE *fp = fopen(target_file, "a");
+    if (!fp) {
+      printf("Error: Could not open %s for appending.\n", target_file);
+      return 1;
+    }
+    FILE *fp_session = fopen(filename, "r");
+    if(strcmp(filename, target_file)==0){
+      fclose(fp);
+      fclose(fp_session);
+      printf("Can't write to that filename.");
+      return 1;
     }
     
+    char buffer[1024];
+    int line_num = 0;
+    int lines_written = 0;
+    while (fgets(buffer, sizeof(buffer), fp_session)) {
+      //printf("%d, %d: ", last_line_saved, line_num);
+      if(line_num >= next_line_to_save){
+        //printf("Wrote\n");
+        fputs(buffer, fp);
+        lines_written++;
+      }
+      line_num++;
+    }
+    //fprintf(stderr, "[DEBUG] history -a: Scanned %d lines, wrote %d lines to %s\n", 
+                // line_num, lines_written, target_file);
+    next_line_to_save = line_num;
+    fclose(fp);
+    fclose(fp_session);
     return 0;
-}
+  }else{
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return 1;
+    
+    if (argv[1] && atoi(argv[1]) > 0) {
+      int limit = atoi(argv[1]);
+      char lines[limit][256]; // VLA on stack
+      int total = 0;
 
-// ... Paste your standard do_echo, do_cd, etc. below here ...
+      while (fgets(lines[total % limit], sizeof(lines[0]), fp)) {
+          total++;
+      }
+
+      int count = (total < limit) ? total : limit;
+      int start = (total < limit) ? 0 : (total % limit);
+
+      for (int i = 0; i < count; i++) {
+          printf("    %d  %s", total - count + i + 1, lines[(start + i) % limit]);
+      }
+    }
+    fclose(fp);
+  }
+  
+  return 0;
+}
 int do_echo(char **argv) {
   for (int i = 1; argv[i] != NULL; i++) {
     printf("%s", argv[i]);
@@ -113,7 +177,9 @@ int do_exit(char **argv) {
 }
 
 int do_cd(char **argv) {
+  // argv[0] is "cd", argv[1] is the path
   char *path = argv[1];
+  
   if (path == NULL || strcmp(path, "~") == 0) {
     path = getenv("HOME");
     if (path == NULL) {
@@ -121,6 +187,7 @@ int do_cd(char **argv) {
       return 1;
     }
   }
+  
   if (chdir(path) != 0) {
     printf("cd: %s: No such file or directory\n", path);
     return 1;
@@ -131,6 +198,7 @@ int do_cd(char **argv) {
 int do_pwd(char **argv) {
   (void) argv;
   char cwd[1024];
+  // getcwd(buffer, size) fills the buffer with the current directory
   if (getcwd(cwd, sizeof(cwd)) != NULL) {
     printf("%s\n", cwd);
   } else {
@@ -141,9 +209,11 @@ int do_pwd(char **argv) {
 }
 
 int do_type(char **argv) {
+  // argv[0] is "type", argv[1] is the command to check
   if (argv[1] == NULL) return 1;
   char *target = argv[1];
 
+  // Check Builtins
   for (int i = 0; builtins[i].name != NULL; i++) {
     if (strcmp(target, builtins[i].name) == 0) {
       printf("%s is a shell builtin\n", target);
@@ -151,6 +221,7 @@ int do_type(char **argv) {
     }
   }
 
+  // Check PATH
   char *path_env = getenv("PATH");
   if (path_env == NULL) return 1;
 
@@ -175,4 +246,41 @@ int do_type(char **argv) {
   
   free(path_copy);
   return 0;
+}
+
+int handle_builtin(char *command, char **argv, char *out_file, char *err_file, int append_out, int append_err) {
+  // Check Builtins
+  for (int i = 0; builtins[i].name != NULL; i++) {
+    if (strcmp(command, builtins[i].name) == 0) {
+      
+      int saved_stdout = -1;
+      int saved_stderr = -1;
+      if (out_file != NULL) {
+        saved_stdout = dup(STDOUT_FILENO);
+        int flags = O_WRONLY | O_CREAT | (append_out ? O_APPEND : O_TRUNC);
+        int fd = open(out_file, flags, 0644);
+        if (fd == -1) { perror("open"); return 1; }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+      }
+      if (err_file != NULL) {
+        saved_stderr = dup(STDERR_FILENO);
+        int flags = O_WRONLY | O_CREAT | (append_err ? O_APPEND : O_TRUNC);
+        int fd = open(err_file, flags, 0644);
+        if (fd == -1) { perror("open"); return 1; }
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+      }
+      
+      // Pass the entire argv array to the handler
+      int result = builtins[i].handler(argv);
+      
+      if (out_file != NULL) { dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout); }
+      if (err_file != NULL) { dup2(saved_stderr, STDERR_FILENO); close(saved_stderr); }
+      
+      if (result == -1) return -1; // Exit shell
+      return 1; // Handled
+    }
+  }
+  return 0; // Not a builtin
 }
