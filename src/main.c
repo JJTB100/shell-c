@@ -207,7 +207,7 @@ int main(int argc, char *main_argv[]) {
       }
     }
 
-    FILE *fptr = fopen("term_history.txt", "a");
+    FILE *fptr = fopen(getenv("HISTFILE"), "a");
     fprintf(fptr, "%s\n", inp);
     fclose(fptr);
     
