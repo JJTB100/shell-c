@@ -7,7 +7,11 @@
 
 const char *get_history_filename() {
     const char *env = getenv("HISTFILE");
+    if(env) {
+        printf("[DEBUG] get_history_filename: HISTFILE='%s'\n", env);
+    }
     return env ? env : "hist_file.txt";
+
 }
 // --- GLOBAL REGISTRY ---
 Builtin builtins[] = {
