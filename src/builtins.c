@@ -16,19 +16,20 @@ Builtin builtins[] = {
   {"history", do_history},
   {NULL, NULL} // Marks end
 };
-int count_file_lines(const char *filename) {
-    FILE *f = fopen(filename, "r");
-    if (!f) return 0; // File doesn't exist = 0 lines
-    int count = 0;
-    char c;
-    // Efficiently count newlines
-    for (c = getc(f); c != EOF; c = getc(f)) { 
-        if (c == '\n') count++;
-    }
-    fclose(f);
-    return count;
-}
 int last_line_saved = -1;
+
+void load_last_line_saved(const char *filename) {
+  FILE *f = fopen(filename, "r");
+  if (!f){ printf("File doesn't exist %s\n", filename); exit(1);} // File doesn't exist = 0 lines
+  int count = 0;
+  char c;
+  // Efficiently count newlines
+  for (c = getc(f); c != EOF; c = getc(f)) { 
+      if (c == '\n') count++;
+  }
+  fclose(f);
+  last_line_saved = count;
+}
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
   char * filename = getenv("HISTFILE");

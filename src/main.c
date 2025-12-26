@@ -184,7 +184,7 @@ void execute_pipeline(Command *head){
 }
 // --- MAIN LOOP ---
 int main(int argc, char *main_argv[]) {
-  last_line_saved = count_file_lines(getenv("HISTFILE"));
+  load_last_line_saved(getenv("HISTFILE"));
   (void) argc;
   (void) main_argv;
   setbuf(stdout, NULL);

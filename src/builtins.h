@@ -22,6 +22,6 @@ int do_history(char **argv);
 
 // Helper to execute builtins with redirection
 int handle_builtin(char *command, char **argv, char *out_file, char *err_file, int append_out, int append_err);
-int last_line_saved;
-int count_file_lines(const char *filename);
+
+void load_last_line_saved(const char *filename);
 #endif
