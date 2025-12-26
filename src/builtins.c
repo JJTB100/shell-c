@@ -40,7 +40,7 @@ void load_session_start(const char *filename) {
   fclose(f);
   
   next_line_to_save = count;
-  fprintf(stderr, "[DEBUG] load_session_start: %s has %d lines. next_line_to_save = %d\n", filename, count, next_line_to_save);
+  //fprintf(stderr, "[DEBUG] load_session_start: %s has %d lines. next_line_to_save = %d\n", filename, count, next_line_to_save);
 }
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
@@ -101,8 +101,8 @@ int do_history(char **argv) {
     return 0;
   } else if (strcmp(argv[1], "-a") == 0) {
     char *target_file = argv[2] ? argv[2] : filename;
-    fprintf(stderr, "[DEBUG] history -a: Source='%s', Target='%s', next_line_to_save=%d\n", 
-                filename, target_file, next_line_to_save);
+    //fprintf(stderr, "[DEBUG] history -a: Source='%s', Target='%s', next_line_to_save=%d\n", 
+            //    filename, target_file, next_line_to_save);
     FILE *fp_session = fopen(filename, "r");
     if (!fp_session) {
         fprintf(stderr, "[DEBUG] history -a: Could not read source file %s\n", filename);
@@ -129,7 +129,7 @@ int do_history(char **argv) {
         current_line_idx++;
     }
     
-    fprintf(stderr, "[DEBUG] history -a: Scanned %d total lines. Wrote %d new lines.\n", current_line_idx, written_count);
+    //fprintf(stderr, "[DEBUG] history -a: Scanned %d total lines. Wrote %d new lines.\n", current_line_idx, written_count);
 
     next_line_to_save = current_line_idx;
     fclose(fp_session);
