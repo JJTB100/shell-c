@@ -26,10 +26,10 @@ int do_history(char **argv) {
     FILE *fp = fopen(filename, "r");
     if (!fp) return 1;
     char line[256];
-      int count = 0;
-      while (fgets(line, sizeof(line), fp)) {
-        printf("    %d  %s", ++count, line);
-      }
+    int count = 0;
+    while (fgets(line, sizeof(line), fp)) {
+      printf("    %d  %s", ++count, line);
+    }
   } else if(strcmp(argv[1], "-r")==0){
     // READ FROM FILE
     if (!argv[2]) {
@@ -58,7 +58,6 @@ int do_history(char **argv) {
 
     FILE *src = fopen(filename, "r");
     // If no history exists yet, there is nothing to copy.
-    printf("File %s not found", filename);
     if (!src) return 0; 
 
     FILE *dest = fopen(argv[2], "w");
