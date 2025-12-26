@@ -1,9 +1,8 @@
-echo pear blueberry mango
-echo blueberry mango
-echo pear pineapple
-echo banana pear strawberry
+
+c1
+c2
+c3
 history -a part1.txt
-echo pear pineapple
-echo banana pear strawberry
-history -a part1.txt
+c4
+c5
 history -a part1.txt
