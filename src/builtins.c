@@ -23,7 +23,11 @@ int last_line_saved = -1;
 int do_history(char **argv) {
   char * filename = "term_history.txt";
   if (!argv[1]){
-    
+    char line[256];
+      int count = 0;
+      while (fgets(line, sizeof(line), fp)) {
+        printf("    %d  %s", ++count, line);
+      }
   } else if(strcmp(argv[1], "-r")==0){
     // READ FROM FILE
     if (!argv[2]) {
@@ -51,7 +55,8 @@ int do_history(char **argv) {
     }
 
     FILE *src = fopen(filename, "r");
-    // If no history exists yet, there is nothing to copy. 
+    // If no history exists yet, there is nothing to copy.
+    printf("File %s not found", filename);
     if (!src) return 0; 
 
     FILE *dest = fopen(argv[2], "w");
@@ -101,7 +106,6 @@ int do_history(char **argv) {
     fclose(fp);
     fclose(fp_session);
     return 0;
-
   }else{
     FILE *fp = fopen(filename, "r");
     if (!fp) return 1;
@@ -120,12 +124,6 @@ int do_history(char **argv) {
 
       for (int i = 0; i < count; i++) {
           printf("    %d  %s", total - count + i + 1, lines[(start + i) % limit]);
-      }
-    }else {
-      char line[256];
-      int count = 0;
-      while (fgets(line, sizeof(line), fp)) {
-        printf("    %d  %s", ++count, line);
       }
     }
     fclose(fp);
