@@ -17,7 +17,7 @@ Builtin builtins[] = {
   {NULL, NULL} // Marks end
 };
 
-int lines_saved = 0;
+int last_line_saved = -1;
 
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
@@ -64,7 +64,6 @@ int do_history(char **argv) {
     char buffer[256];
     // Efficient copy loop
     while (fgets(buffer, sizeof(buffer), src)) {
-      lines_saved++;
       fputs(buffer, dest);
     }
 
@@ -93,12 +92,11 @@ int do_history(char **argv) {
     char buffer[256];
     int line_num = 0;
     while (fgets(buffer, sizeof(buffer), fp_session)) {
-      line_num++;
-      if(lines_saved>line_num){
+      if(last_line_saved<line_num){
         fputs(buffer, fp);
         lines_saved++;
       }
-      
+      line_num++;
     }
     fclose(fp);
     fclose(fp_session);
