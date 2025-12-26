@@ -84,7 +84,7 @@ int compare_strings(const void *a, const void *b) {
 char *get_history_line(int depth) {
     if (depth <= 0) return NULL;
     
-    FILE *fp = fopen("term_history.txt", "r");
+    FILE *fp = fopen(getenv("HISTFILE"), "r");
     if (!fp) return NULL;
 
     // Count total lines

@@ -3,7 +3,7 @@
 make -C src
 
 if [[ "$1" == *"r"* ]] || [[ "$2" == *"r"* ]]; then
-    ./src/myshell
+    HISTFILE=hist_file.txt ./src/myshell
 fi
 
 if [[ "$1" == *"c"* ]] || [[ "$2" == *"c"* ]]; then

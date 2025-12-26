@@ -1,0 +1,19 @@
+history
+shiro
+shi
+history
+history -a part1.txt
+c1
+c2
+history -a part2.txt
+history -a part1.txt
+history
+history -a part1.txt
+history -a part1.txt
+history -a part1.txt
+history -a part1.txt
+cat part1.txt
+history -a part1.txt
+cat part1.txt
+history -a part2.txt
+cat part2.txt

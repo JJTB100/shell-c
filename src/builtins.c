@@ -17,8 +17,8 @@ Builtin builtins[] = {
   {NULL, NULL} // Marks end
 };
 int last_line_saved = -1;
-
-void load_last_line_saved(const char *filename) {
+int session_start_line = -1;
+void load_session_start(const char *filename) {
   FILE *f = fopen(filename, "r");
   if (!f){ printf("File doesn't exist %s\n", filename); exit(1);} // File doesn't exist = 0 lines
   int count = 0;
@@ -28,7 +28,7 @@ void load_last_line_saved(const char *filename) {
       if (c == '\n') count++;
   }
   fclose(f);
-  last_line_saved = count;
+  session_start_line = count;
 }
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
@@ -106,10 +106,13 @@ int do_history(char **argv) {
       printf("Can't write to that filename.");
       return 1;
     }
+    
     char buffer[256];
-    int line_num = 0;
+    int line_num = session_start_line;
     while (fgets(buffer, sizeof(buffer), fp_session)) {
+      printf("%d, %d: ", last_line_saved, line_num);
       if(last_line_saved<line_num){
+        printf("Wrote\n");
         fputs(buffer, fp);
         last_line_saved++;
       }
