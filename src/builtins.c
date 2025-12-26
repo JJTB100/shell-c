@@ -21,7 +21,8 @@ Builtin builtins[] = {
 };
 int next_line_to_save = 0;
 int session_start_line = 0;
-void load_session_start(const char *filename) {
+void load_session_start() {
+  const char *filename = get_history_filename();
   next_line_to_save = 0;
 
   if (!filename) {

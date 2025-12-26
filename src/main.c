@@ -184,7 +184,7 @@ void execute_pipeline(Command *head){
 }
 // --- MAIN LOOP ---
 int main(int argc, char *main_argv[]) {
-  load_session_start(getenv("HISTFILE"));
+  load_session_start();
   (void) argc;
   (void) main_argv;
   setbuf(stdout, NULL);
