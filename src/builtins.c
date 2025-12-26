@@ -16,19 +16,24 @@ Builtin builtins[] = {
   {"history", do_history},
   {NULL, NULL} // Marks end
 };
-int last_line_saved = -1;
-int session_start_line = -1;
+int next_line_to_save = 0;
+int session_start_line = 0;
 void load_session_start(const char *filename) {
   FILE *f = fopen(filename, "r");
-  if (!f){ printf("File doesn't exist %s\n", filename); exit(1);} // File doesn't exist = 0 lines
+  if (!f) { 
+    session_start_line = 0;
+    next_line_to_save = 0;
+    return;
+  } 
   int count = 0;
   char c;
   // Efficiently count newlines
   for (c = getc(f); c != EOF; c = getc(f)) { 
-      if (c == '\n') count++;
-  }
+        if (c == '\n') count++;
+    }
   fclose(f);
   session_start_line = count;
+  next_line_to_save = count;
 }
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
@@ -36,7 +41,7 @@ int do_history(char **argv) {
   if (!argv[1]){
     FILE *fp = fopen(filename, "r");
     if (!fp) return 1;
-    char line[256];
+    char line[1024];
     int count = 0;
     while (fgets(line, sizeof(line), fp)) {
       printf("    %d  %s", ++count, line);
@@ -107,17 +112,17 @@ int do_history(char **argv) {
       return 1;
     }
     
-    char buffer[256];
+    char buffer[1024];
     int line_num = 0;
     while (fgets(buffer, sizeof(buffer), fp_session)) {
       //printf("%d, %d: ", last_line_saved, line_num);
-      if(last_line_saved<line_num && line_num >= session_start_line){
+      if(line_num >= next_line_to_save){
         //printf("Wrote\n");
         fputs(buffer, fp);
-        last_line_saved++;
       }
       line_num++;
     }
+    next_line_to_save = line_num;
     fclose(fp);
     fclose(fp_session);
     return 0;
