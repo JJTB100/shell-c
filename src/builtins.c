@@ -33,7 +33,7 @@ void load_session_start(const char *filename) {
     }
   fclose(f);
   next_line_to_save = count;
-  fprintf(stderr, "[DEBUG] Session start. Existing lines: %d\n", next_line_to_save);
+  //fprintf(stderr, "[DEBUG] Session start. Existing lines: %d\n", next_line_to_save);
 }
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
@@ -124,8 +124,8 @@ int do_history(char **argv) {
       }
       line_num++;
     }
-    fprintf(stderr, "[DEBUG] history -a: Scanned %d lines, wrote %d lines to %s\n", 
-                 line_num, lines_written, target_file);
+    //fprintf(stderr, "[DEBUG] history -a: Scanned %d lines, wrote %d lines to %s\n", 
+                // line_num, lines_written, target_file);
     next_line_to_save = line_num;
     fclose(fp);
     fclose(fp_session);
