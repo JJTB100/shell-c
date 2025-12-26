@@ -37,3 +37,6 @@ history -a part1.txt
 c4
 c5
 history -a part1.txt
+c4
+c5
+history -a part1.txt

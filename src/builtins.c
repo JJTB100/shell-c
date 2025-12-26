@@ -100,42 +100,40 @@ int do_history(char **argv) {
     fclose(dest);
     return 0;
   } else if (strcmp(argv[1], "-a") == 0) {
-    char *target_file;
-    if (argv[2]) {
-      target_file = argv[2];
-    } else {
-      target_file = filename;
-    }
-    FILE *fp = fopen(target_file, "a");
-    if (!fp) {
-      printf("Error: Could not open %s for appending.\n", target_file);
-      return 1;
-    }
+    char *target_file = argv[2] ? argv[2] : filename;
+    fprintf(stderr, "[DEBUG] history -a: Source='%s', Target='%s', next_line_to_save=%d\n", 
+                filename, target_file, next_line_to_save);
     FILE *fp_session = fopen(filename, "r");
-    if(strcmp(filename, target_file)==0){
-      fclose(fp);
-      fclose(fp_session);
-      printf("Can't write to that filename.");
-      return 1;
+    if (!fp_session) {
+        fprintf(stderr, "[DEBUG] history -a: Could not read source file %s\n", filename);
+        return 0; 
+    }
+
+    FILE *fp_dest = fopen(target_file, "a");
+    if (!fp_dest) {
+        printf("Error: Could not open %s for appending.\n", target_file);
+        fclose(fp_session);
+        return 1;
     }
     
     char buffer[1024];
-    int line_num = 0;
-    int lines_written = 0;
+    int current_line_idx = 0;
+    int written_count = 0;
+
     while (fgets(buffer, sizeof(buffer), fp_session)) {
-      //printf("%d, %d: ", last_line_saved, line_num);
-      if(line_num >= next_line_to_save){
-        //printf("Wrote\n");
-        fputs(buffer, fp);
-        lines_written++;
-      }
-      line_num++;
+        // Check if this line is "new"
+        if (current_line_idx >= next_line_to_save) {
+            fputs(buffer, fp_dest);
+            written_count++;
+        }
+        current_line_idx++;
     }
-    //fprintf(stderr, "[DEBUG] history -a: Scanned %d lines, wrote %d lines to %s\n", 
-                // line_num, lines_written, target_file);
-    next_line_to_save = line_num;
-    fclose(fp);
+    
+    fprintf(stderr, "[DEBUG] history -a: Scanned %d total lines. Wrote %d new lines.\n", current_line_idx, written_count);
+
+    next_line_to_save = current_line_idx;
     fclose(fp_session);
+    fclose(fp_dest);
     return 0;
   }else{
     FILE *fp = fopen(filename, "r");
