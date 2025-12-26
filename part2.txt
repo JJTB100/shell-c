@@ -1,2 +1,0 @@
-cat part1.txt
-history -a part2.txt

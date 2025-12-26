@@ -108,10 +108,10 @@ int do_history(char **argv) {
     }
     
     char buffer[256];
-    int line_num = session_start_line;
+    int line_num = 0;
     while (fgets(buffer, sizeof(buffer), fp_session)) {
       printf("%d, %d: ", last_line_saved, line_num);
-      if(last_line_saved<line_num){
+      if(last_line_saved<line_num && line_num >= session_start_line){
         printf("Wrote\n");
         fputs(buffer, fp);
         last_line_saved++;

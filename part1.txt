@@ -1,15 +1,8 @@
-shiro
-shi
-history
-history -a part1.txt
 c1
 c2
-history -a part2.txt
+c3
+c5
 history -a part1.txt
-history
-history -a part1.txt
-history -a part1.txt
-history -a part1.txt
-history -a part1.txt
-cat part1.txt
+new
+new2
 history -a part1.txt
