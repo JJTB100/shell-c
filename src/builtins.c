@@ -21,7 +21,7 @@ int last_line_saved = -1;
 
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
-  char * filename = "term_history.txt";
+  char * filename = getenv("HISTFILE");
   if (!argv[1]){
     FILE *fp = fopen(filename, "r");
     if (!fp) return 1;
