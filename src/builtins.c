@@ -8,7 +8,7 @@
 const char *get_history_filename() {
     const char *env = getenv("HISTFILE");
     if(!env || strcmp(env, "/dev/null")==0) {
-      printf("No HISTFILE set, using default 'hist_file.txt'\n");
+      //printf("No HISTFILE set, using default 'hist_file.txt'\n");
       return "hist_file.txt";
     }
     return env;
