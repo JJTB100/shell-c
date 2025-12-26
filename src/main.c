@@ -206,9 +206,17 @@ int main(int argc, char *main_argv[]) {
       }
     }
 
-    FILE *fptr = fopen(getenv("HISTFILE"), "a");
-    fprintf(fptr, "%s\n", inp);
-    fclose(fptr);
+   char *histfile_env = getenv("HISTFILE");
+    if (histfile_env) {
+        FILE *fptr = fopen(histfile_env, "a");
+        if (fptr) {
+            fprintf(fptr, "%s\n", inp);
+            fclose(fptr);
+        } else {
+            // Optional: Print error to stderr to see if fopen fails remotely
+            fprintf(stderr, "[DEBUG] Failed to open HISTFILE: %s\n", histfile_env);
+        }
+    }
     
     char *argv[100];
     int num_token = tokenise(inp, argv);
