@@ -206,16 +206,18 @@ int main(int argc, char *main_argv[]) {
       }
     }
 
-   char *histfile_env = getenv("HISTFILE");
-    if (histfile_env) {
-        FILE *fptr = fopen(histfile_env, "a");
-        if (fptr) {
-            fprintf(fptr, "%s\n", inp);
-            fclose(fptr);
-        } else {
-            // Optional: Print error to stderr to see if fopen fails remotely
-            fprintf(stderr, "[DEBUG] Failed to open HISTFILE: %s\n", histfile_env);
-        }
+   char *histfile = getenv("HISTFILE");
+    if (histfile == NULL) {
+        histfile = ".shell_history"; // Default fallback
+    }
+
+    FILE *fptr = fopen(histfile, "a");
+    if (fptr) {
+        fprintf(fptr, "%s\n", inp);
+        fclose(fptr);
+    } else {
+        // Only print this if you want to see if opening fails
+        fprintf(stderr, "[DEBUG] Failed to open history file: %s\n", histfile);
     }
     
     char *argv[100];
