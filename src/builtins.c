@@ -5,7 +5,10 @@
 #include <fcntl.h>
 #include "builtins.h"
 
-
+const char *get_history_filename() {
+    const char *env = getenv("HISTFILE");
+    return env ? env : "hist_file.txt";
+}
 // --- GLOBAL REGISTRY ---
 Builtin builtins[] = {
   {"echo", do_echo},
@@ -44,7 +47,7 @@ void load_session_start(const char *filename) {
 }
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
-  char * filename = getenv("HISTFILE");
+  char * filename = get_history_filename();
   if (!argv[1]){
     FILE *fp = fopen(filename, "r");
     if (!fp) return 1;
