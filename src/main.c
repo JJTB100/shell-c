@@ -184,8 +184,8 @@ void execute_pipeline(Command *head){
 }
 // --- MAIN LOOP ---
 int main(int argc, char *main_argv[]) {
-  FILE *fptr = fopen("term_history.txt", "w");
-  fclose(fptr);
+ /* FILE *fptr = fopen(getenv("HISTFILE"), "w");
+  fclose(fptr);*/
   (void) argc;
   (void) main_argv;
   setbuf(stdout, NULL);
