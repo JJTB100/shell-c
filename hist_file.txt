@@ -26,3 +26,7 @@ history -a part1.txt
 new
 new2
 history -a part1.txt
+echo pear pineapple
+echo banana pear strawberry
+history -a part1.txt
+history -a part1.txt
