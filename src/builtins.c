@@ -109,8 +109,8 @@ int do_history(char **argv) {
     return 0;
   } else if (strcmp(argv[1], "-a") == 0) {
     char *target_file = argv[2] ? argv[2] : filename;
-    //fprintf(stderr, "[DEBUG] history -a: Source='%s', Target='%s', next_line_to_save=%d\n", 
-            //    filename, target_file, next_line_to_save);
+    fprintf(stderr, "[DEBUG] history -a: Source='%s', Target='%s', next_line_to_save=%d\n", 
+                filename, target_file, next_line_to_save);
     FILE *fp_session = fopen(filename, "r");
     if (!fp_session) {
         fprintf(stderr, "[DEBUG] history -a: Could not read source file %s\n", filename);
