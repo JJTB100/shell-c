@@ -17,6 +17,8 @@ Builtin builtins[] = {
   {NULL, NULL} // Marks end
 };
 
+int lines_saved = 0;
+
 // --- IMPLEMENTATIONS ---
 int do_history(char **argv) {
   char * filename = "term_history.txt";
@@ -50,7 +52,6 @@ int do_history(char **argv) {
 
     FILE *src = fopen(filename, "r");
     // If no history exists yet, there is nothing to copy. 
-    // You might want to create an empty file or just return.
     if (!src) return 0; 
 
     FILE *dest = fopen(argv[2], "w");
@@ -63,6 +64,7 @@ int do_history(char **argv) {
     char buffer[256];
     // Efficient copy loop
     while (fgets(buffer, sizeof(buffer), src)) {
+      lines_saved++;
       fputs(buffer, dest);
     }
 
@@ -70,32 +72,32 @@ int do_history(char **argv) {
     fclose(dest);
     return 0;
   } else if (strcmp(argv[1], "-a") == 0) {
-    if (!argv[2]) {
-      printf("Error: Missing destination filename.\n");
+    char *target_file;
+    if (argv[2]) {
+      target_file = argv[2];
+    } else {
+      target_file = filename;
+    }
+    FILE *fp = fopen(target_file, "a");
+    if (!fp) {
+      printf("Error: Could not open %s for appending.\n", target_file);
       return 1;
     }
-
-    FILE *src = fopen(filename, "r");
-    // If no history exists yet, there is nothing to copy. 
-    // You might want to create an empty file or just return.
-    if (!src) return 0; 
-
-    FILE *dest = fopen(argv[2], "a");
-    if (!dest) {
-      printf("Error: Could not open %s for appending.\n", argv[2]);
-      fclose(src);
+    FILE *fp_session = fopen(filename, "r");
+    if(strcmp(filename, target_file)==0){
+      fclose(fp);
+      fclose(fp_session);
+      printf("Can't write to that filename.");
       return 1;
     }
-
     char buffer[256];
-    // Efficient copy loop
-    while (fgets(buffer, sizeof(buffer), src)) {
-      fputs(buffer, dest);
+    while (fgets(buffer, sizeof(buffer), fp_session)) {
+      fputs(buffer, fp);
     }
-
-    fclose(src);
-    fclose(dest);
+    fclose(fp);
+    fclose(fp_session);
     return 0;
+
   }else{
     FILE *fp = fopen(filename, "r");
     if (!fp) return 1;
