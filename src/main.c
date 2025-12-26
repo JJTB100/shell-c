@@ -185,7 +185,7 @@ void execute_pipeline(Command *head){
 // --- MAIN LOOP ---
 int main(int argc, char *main_argv[]) {
   FILE *debug_fp = fopen("hist_file.txt", "w");
-  close(debug_fp);
+  fclose(debug_fp);
 
   load_session_start();
   (void) argc;
