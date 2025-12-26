@@ -208,7 +208,7 @@ int main(int argc, char *main_argv[]) {
 
    char *histfile = getenv("HISTFILE");
     if (histfile == NULL) {
-        histfile = ".shell_history"; // Default fallback
+        histfile = "hist_file.txt"; // Default fallback
     }
 
     FILE *fptr = fopen(histfile, "a");
