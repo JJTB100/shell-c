@@ -23,6 +23,8 @@ int last_line_saved = -1;
 int do_history(char **argv) {
   char * filename = "term_history.txt";
   if (!argv[1]){
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return 1;
     char line[256];
       int count = 0;
       while (fgets(line, sizeof(line), fp)) {
