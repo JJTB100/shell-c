@@ -93,7 +93,7 @@ int do_history(char **argv) {
     char buffer[256];
     int line_num = 0;
     while (fgets(buffer, sizeof(buffer), fp_session)) {
-      if(lines_saved>line_num){
+      if(lines_saved<=line_num){
         fputs(buffer, fp);
         lines_saved++;
         line_num++;
